@@ -25,12 +25,16 @@ class cmVS10GeneratorOptions;
 
 class cmVisualStudio10TargetGenerator
 {
-  CM_DISABLE_COPY(cmVisualStudio10TargetGenerator)
-
 public:
   cmVisualStudio10TargetGenerator(cmGeneratorTarget* target,
                                   cmGlobalVisualStudio10Generator* gg);
   ~cmVisualStudio10TargetGenerator();
+
+  cmVisualStudio10TargetGenerator(cmVisualStudio10TargetGenerator const&) =
+    delete;
+  cmVisualStudio10TargetGenerator& operator=(
+    cmVisualStudio10TargetGenerator const&) = delete;
+
   void Generate();
 
 private:
@@ -57,6 +61,7 @@ private:
   void WriteProjectConfigurations(Elem& e0);
   void WriteProjectConfigurationValues(Elem& e0);
   void WriteMSToolConfigurationValues(Elem& e1, std::string const& config);
+  void WriteCEDebugProjectConfigurationValues(Elem& e0);
   void WriteMSToolConfigurationValuesManaged(Elem& e1,
                                              std::string const& config);
   void WriteHeaderSource(Elem& e1, cmSourceFile const* sf);

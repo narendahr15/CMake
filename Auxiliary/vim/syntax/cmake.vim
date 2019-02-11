@@ -733,7 +733,7 @@ syn keyword cmakeVariable contained
             \ CTEST_CUSTOM_POST_TEST
             \ CTEST_CUSTOM_PRE_MEMCHECK
             \ CTEST_CUSTOM_PRE_TEST
-            \ CTEST_CUSTOM_TEST_IGNORE
+            \ CTEST_CUSTOM_TESTS_IGNORE
             \ CTEST_CUSTOM_WARNING_EXCEPTION
             \ CTEST_CUSTOM_WARNING_MATCH
             \ CTEST_CVS_CHECKOUT
@@ -877,6 +877,7 @@ syn keyword cmakeKWExternalProject contained
             \ LOG_DOWNLOAD
             \ LOG_INSTALL
             \ LOG_MERGED_STDOUTERR
+            \ LOG_OUTPUT_ON_FAILURE
             \ LOG_PATCH
             \ LOG_TEST
             \ LOG_UPDATE
@@ -2211,6 +2212,8 @@ syn keyword cmakeGeneratorExpressions contained
             \ DEBUG_MODE
             \ EXPORT
             \ FOO_EXTRA_THINGS
+            \ Fortran_COMPILER_ID
+            \ Fortran_COMPILER_VERSION
             \ GENEX_EVAL
             \ GNU
             \ IF

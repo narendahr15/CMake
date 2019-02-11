@@ -35,6 +35,7 @@ case results are reported in variables::
   Boost_MAJOR_VERSION    - Boost major version number (X in X.y.z)
   Boost_MINOR_VERSION    - Boost minor version number (Y in x.Y.z)
   Boost_SUBMINOR_VERSION - Boost subminor version number (Z in x.y.Z)
+  Boost_VERSION_STRING   - Boost version number in x.y.z format
   Boost_LIB_DIAGNOSTIC_DEFINITIONS (Windows)
                          - Pass to add_definitions() to have diagnostic
                            information about Boost's automatic linking
@@ -410,15 +411,18 @@ endmacro()
 
 #-------------------------------------------------------------------------------
 
-#
-# Runs compiler with "-dumpversion" and parses major/minor
-# version with a regex.
-#
-function(_Boost_COMPILER_DUMPVERSION _OUTPUT_VERSION)
-  string(REGEX REPLACE "([0-9]+)\\.([0-9]+)(\\.[0-9]+)?" "\\1\\2"
-    _boost_COMPILER_VERSION ${CMAKE_CXX_COMPILER_VERSION})
+# Convert CMAKE_CXX_COMPILER_VERSION to boost compiler suffix version.
+function(_Boost_COMPILER_DUMPVERSION _OUTPUT_VERSION _OUTPUT_VERSION_MAJOR _OUTPUT_VERSION_MINOR)
+  string(REGEX REPLACE "([0-9]+)\\.([0-9]+)(\\.[0-9]+)?" "\\1"
+    _boost_COMPILER_VERSION_MAJOR "${CMAKE_CXX_COMPILER_VERSION}")
+  string(REGEX REPLACE "([0-9]+)\\.([0-9]+)(\\.[0-9]+)?" "\\2"
+    _boost_COMPILER_VERSION_MINOR "${CMAKE_CXX_COMPILER_VERSION}")
+
+  set(_boost_COMPILER_VERSION "${_boost_COMPILER_VERSION_MAJOR}${_boost_COMPILER_VERSION_MINOR}")
 
   set(${_OUTPUT_VERSION} ${_boost_COMPILER_VERSION} PARENT_SCOPE)
+  set(${_OUTPUT_VERSION_MAJOR} ${_boost_COMPILER_VERSION_MAJOR} PARENT_SCOPE)
+  set(${_OUTPUT_VERSION_MINOR} ${_boost_COMPILER_VERSION_MINOR} PARENT_SCOPE)
 endfunction()
 
 #
@@ -483,15 +487,25 @@ function(_Boost_GUESS_COMPILER_PREFIX _ret)
     if(${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION} VERSION_LESS 1.34)
         set(_boost_COMPILER "-mgw") # no GCC version encoding prior to 1.34
     else()
-      _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION)
+      _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION _boost_COMPILER_VERSION_MAJOR _boost_COMPILER_VERSION_MINOR)
       set(_boost_COMPILER "-mgw${_boost_COMPILER_VERSION}")
     endif()
   elseif (UNIX)
-    if (CMAKE_COMPILER_IS_GNUCXX)
+    _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION _boost_COMPILER_VERSION_MAJOR _boost_COMPILER_VERSION_MINOR)
+    if(NOT Boost_VERSION VERSION_LESS 106900)
+      # From GCC 5 and clang 4, versioning changes and minor becomes patch.
+      # For those compilers, patch is exclude from compiler tag in Boost 1.69+ library naming.
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND _boost_COMPILER_VERSION_MAJOR VERSION_GREATER 4)
+        set(_boost_COMPILER_VERSION "${_boost_COMPILER_VERSION_MAJOR}")
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND _boost_COMPILER_VERSION_MAJOR VERSION_GREATER 3)
+        set(_boost_COMPILER_VERSION "${_boost_COMPILER_VERSION_MAJOR}")
+      endif()
+    endif()
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       if(${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION} VERSION_LESS 1.34)
         set(_boost_COMPILER "-gcc") # no GCC version encoding prior to 1.34
       else()
-        _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION)
         # Determine which version of GCC we have.
         if(APPLE)
           if(Boost_MINOR_VERSION)
@@ -513,7 +527,10 @@ function(_Boost_GUESS_COMPILER_PREFIX _ret)
           set(_boost_COMPILER "-gcc${_boost_COMPILER_VERSION}")
         endif()
       endif()
-    endif ()
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      # TODO: Find out any Boost version constraints vs clang support.
+      set(_boost_COMPILER "-clang${_boost_COMPILER_VERSION}")
+    endif()
   else()
     # TODO at least Boost_DEBUG here?
     set(_boost_COMPILER "")
@@ -845,8 +862,22 @@ function(_Boost_COMPONENT_DEPENDENCIES component _ret)
     set(_Boost_TIMER_DEPENDENCIES chrono system)
     set(_Boost_WAVE_DEPENDENCIES filesystem system serialization thread chrono date_time atomic)
     set(_Boost_WSERIALIZATION_DEPENDENCIES serialization)
+  elseif(NOT Boost_VERSION VERSION_LESS 106900 AND Boost_VERSION VERSION_LESS 107000)
+    set(_Boost_CONTRACT_DEPENDENCIES thread chrono date_time)
+    set(_Boost_COROUTINE_DEPENDENCIES context)
+    set(_Boost_FIBER_DEPENDENCIES context)
+    set(_Boost_IOSTREAMS_DEPENDENCIES regex)
+    set(_Boost_LOG_DEPENDENCIES date_time log_setup filesystem thread regex chrono atomic)
+    set(_Boost_MATH_DEPENDENCIES math_c99 math_c99f math_c99l math_tr1 math_tr1f math_tr1l atomic)
+    set(_Boost_MPI_DEPENDENCIES serialization)
+    set(_Boost_MPI_PYTHON_DEPENDENCIES python${component_python_version} mpi serialization)
+    set(_Boost_NUMPY_DEPENDENCIES python${component_python_version})
+    set(_Boost_THREAD_DEPENDENCIES chrono date_time atomic)
+    set(_Boost_TIMER_DEPENDENCIES chrono system)
+    set(_Boost_WAVE_DEPENDENCIES filesystem serialization thread chrono date_time atomic)
+    set(_Boost_WSERIALIZATION_DEPENDENCIES serialization)
   else()
-    if(NOT Boost_VERSION VERSION_LESS 106900)
+    if(NOT Boost_VERSION VERSION_LESS 107000)
       set(_Boost_CONTRACT_DEPENDENCIES thread chrono date_time)
       set(_Boost_COROUTINE_DEPENDENCIES context)
       set(_Boost_FIBER_DEPENDENCIES context)
@@ -854,15 +885,14 @@ function(_Boost_COMPONENT_DEPENDENCIES component _ret)
       set(_Boost_LOG_DEPENDENCIES date_time log_setup filesystem thread regex chrono atomic)
       set(_Boost_MATH_DEPENDENCIES math_c99 math_c99f math_c99l math_tr1 math_tr1f math_tr1l atomic)
       set(_Boost_MPI_DEPENDENCIES serialization)
-      set(_Boost_MPI_PYTHON_DEPENDENCIES python mpi serialization)
-      set(_Boost_NUMPY_DEPENDENCIES python)
-      set(_Boost_SYNC_DEPENDENCIES chrono atomic)
+      set(_Boost_MPI_PYTHON_DEPENDENCIES python${component_python_version} mpi serialization)
+      set(_Boost_NUMPY_DEPENDENCIES python${component_python_version})
       set(_Boost_THREAD_DEPENDENCIES chrono date_time atomic)
       set(_Boost_TIMER_DEPENDENCIES chrono system)
       set(_Boost_WAVE_DEPENDENCIES filesystem serialization thread chrono date_time atomic)
       set(_Boost_WSERIALIZATION_DEPENDENCIES serialization)
     endif()
-    if(NOT Boost_VERSION VERSION_LESS 107000)
+    if(NOT Boost_VERSION VERSION_LESS 107100)
       message(WARNING "New Boost version may have incorrect or missing dependencies and imported targets")
     endif()
   endif()
@@ -1110,6 +1140,7 @@ else()
   # _Boost_COMPONENT_HEADERS.  See the instructions at the top of
   # _Boost_COMPONENT_DEPENDENCIES.
   set(_Boost_KNOWN_VERSIONS ${Boost_ADDITIONAL_VERSIONS}
+    "1.70.0" "1.70" "1.69.0" "1.69"
     "1.68.0" "1.68" "1.67.0" "1.67" "1.66.0" "1.66" "1.65.1" "1.65.0" "1.65"
     "1.64.0" "1.64" "1.63.0" "1.63" "1.62.0" "1.62" "1.61.0" "1.61" "1.60.0" "1.60"
     "1.59.0" "1.59" "1.58.0" "1.58" "1.57.0" "1.57" "1.56.0" "1.56" "1.55.0" "1.55"
@@ -1352,6 +1383,7 @@ if(Boost_INCLUDE_DIR)
   math(EXPR Boost_MAJOR_VERSION "${Boost_VERSION} / 100000")
   math(EXPR Boost_MINOR_VERSION "${Boost_VERSION} / 100 % 1000")
   math(EXPR Boost_SUBMINOR_VERSION "${Boost_VERSION} % 100")
+  set(Boost_VERSION_STRING "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
 
   string(APPEND Boost_ERROR_REASON
     "Boost version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}\nBoost include path: ${Boost_INCLUDE_DIR}")
@@ -2082,6 +2114,9 @@ if(Boost_FOUND)
         message (STATUS "  ${COMPONENT}")
       endif()
       list(APPEND Boost_LIBRARIES ${Boost_${UPPERCOMPONENT}_LIBRARY})
+      if(COMPONENT STREQUAL "thread")
+        list(APPEND Boost_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+      endif()
     endif()
   endforeach()
 else()

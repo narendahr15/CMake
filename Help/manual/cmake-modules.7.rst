@@ -28,6 +28,7 @@ These modules are loaded using the :command:`include` command.
    /module/CheckFortranCompilerFlag
    /module/CheckFortranFunctionExists
    /module/CheckFortranSourceCompiles
+   /module/CheckFortranSourceRuns
    /module/CheckFunctionExists
    /module/CheckIPOSupported
    /module/CheckIncludeFileCXX
@@ -35,6 +36,7 @@ These modules are loaded using the :command:`include` command.
    /module/CheckIncludeFiles
    /module/CheckLanguage
    /module/CheckLibraryExists
+   /module/CheckPIESupported
    /module/CheckPrototypeDefinition
    /module/CheckStructHasMember
    /module/CheckSymbolExists
@@ -48,7 +50,6 @@ These modules are loaded using the :command:`include` command.
    /module/CMakeFindPackageMode
    /module/CMakeGraphVizOptions
    /module/CMakePackageConfigHelpers
-   /module/CMakeParseArguments
    /module/CMakePrintHelpers
    /module/CMakePrintSystemInformation
    /module/CMakePushCheckState
@@ -77,7 +78,6 @@ These modules are loaded using the :command:`include` command.
    /module/GNUInstallDirs
    /module/GoogleTest
    /module/InstallRequiredSystemLibraries
-   /module/MacroAddFileDependencies
    /module/ProcessorCount
    /module/SelectLibraryConfigurations
    /module/SquishTestScript
@@ -90,10 +90,8 @@ These modules are loaded using the :command:`include` command.
    /module/UseJavaClassFilelist
    /module/UseJava
    /module/UseJavaSymlinks
-   /module/UsePkgConfig
    /module/UseSWIG
    /module/UsewxWidgets
-   /module/Use_wxWindows
    /module/WriteCompilerDetectionHeader
 
 Find Modules
@@ -180,6 +178,7 @@ They are normally called through the :command:`find_package` command.
    /module/FindMPEG2
    /module/FindMPEG
    /module/FindMPI
+   /module/FindOctave
    /module/FindODBC
    /module/FindOpenACC
    /module/FindOpenAL
@@ -225,7 +224,6 @@ They are normally called through the :command:`find_package` command.
    /module/FindPython3
    /module/FindQt3
    /module/FindQt4
-   /module/FindQt
    /module/FindQuickTime
    /module/FindRTI
    /module/FindRuby
@@ -270,7 +268,10 @@ Deprecated Utility Modules
    /module/CMakeDetermineVSServicePack
    /module/CMakeExpandImportedTargets
    /module/CMakeForceCompiler
+   /module/CMakeParseArguments
+   /module/MacroAddFileDependencies
    /module/TestCXXAcceptsFlag
+   /module/UsePkgConfig
    /module/Use_wxWindows
    /module/WriteBasicConfigVersionFile
 
@@ -283,6 +284,7 @@ Deprecated Find Modules
    /module/FindCUDA
    /module/FindPythonInterp
    /module/FindPythonLibs
+   /module/FindQt
    /module/FindwxWindows
 
 Legacy CPack Modules

@@ -13,7 +13,7 @@
 class cmInstallCommandArguments
 {
 public:
-  cmInstallCommandArguments(const std::string& defaultComponent);
+  cmInstallCommandArguments(std::string defaultComponent);
   void SetGenericArguments(cmInstallCommandArguments* args)
   {
     this->GenericArguments = args;
@@ -45,7 +45,6 @@ public:
   cmCommandArgumentGroup ArgumentGroup;
 
 private:
-  cmInstallCommandArguments(); // disabled
   cmCAString Destination;
   cmCAString Component;
   cmCAString NamelinkComponent;

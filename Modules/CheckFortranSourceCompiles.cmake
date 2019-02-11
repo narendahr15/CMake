@@ -17,8 +17,20 @@ Check if given Fortran source compiles and links into an executable.
     )
 
   Checks that the source supplied in ``<code>`` can be compiled as a Fortran
-  source file and linked as an executable (so it must contain at least a
-  ``PROGRAM`` entry point). The result will be stored in the internal cache
+  source file and linked as an executable. The ``<code>`` must be a Fortran program
+  containing at least an ``end`` statement--for example:
+
+  .. code-block:: cmake
+
+    check_fortran_source_compiles("character :: b; error stop b; end" F2018ESTOPOK SRC_EXT F90)
+
+  This command can help avoid costly build processes when a compiler lacks support
+  for a necessary feature, or a particular vendor library is not compatible with
+  the Fortran compiler version being used. This generate-time check may advise the
+  user of such before the main build process. See also the
+  :command:`check_fortran_source_runs` command to actually run the compiled code.
+
+  The result will be stored in the internal cache
   variable ``<resultVar>``, with a boolean true value for success and boolean
   false for failure.
 
@@ -26,7 +38,8 @@ Check if given Fortran source compiles and links into an executable.
   if anything in the output matches any of the specified regular expressions.
 
   By default, the test source file will be given a ``.F`` file extension. The
-  ``SRC_EXT`` option can be used to override this with ``.<extension>`` instead.
+  ``SRC_EXT`` option can be used to override this with ``.<extension>`` instead--
+  ``.F90`` is a typical choice.
 
   The underlying check is performed by the :command:`try_compile` command. The
   compile and link commands can be influenced by setting any of the following
@@ -48,6 +61,10 @@ Check if given Fortran source compiles and links into an executable.
     the compiler. These will be the only header search paths used by
     ``try_compile()``, i.e. the contents of the :prop_dir:`INCLUDE_DIRECTORIES`
     directory property will be ignored.
+
+  ``CMAKE_REQUIRED_LINK_OPTIONS``
+    A :ref:`;-list <CMake Language Lists>` of options to add to the link
+    command (see :command:`try_compile` for further details).
 
   ``CMAKE_REQUIRED_LIBRARIES``
     A :ref:`;-list <CMake Language Lists>` of libraries to add to the link
@@ -88,6 +105,12 @@ macro(CHECK_Fortran_SOURCE_COMPILES SOURCE VAR)
     endif()
     set(MACRO_CHECK_FUNCTION_DEFINITIONS
       "-D${VAR} ${CMAKE_REQUIRED_FLAGS}")
+    if(CMAKE_REQUIRED_LINK_OPTIONS)
+      set(CHECK_Fortran_SOURCE_COMPILES_ADD_LINK_OPTIONS
+        LINK_OPTIONS ${CMAKE_REQUIRED_LINK_OPTIONS})
+    else()
+      set(CHECK_Fortran_SOURCE_COMPILES_ADD_LINK_OPTIONS)
+    endif()
     if(CMAKE_REQUIRED_LIBRARIES)
       set(CHECK_Fortran_SOURCE_COMPILES_ADD_LIBRARIES
         LINK_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
@@ -110,6 +133,7 @@ macro(CHECK_Fortran_SOURCE_COMPILES SOURCE VAR)
       ${CMAKE_BINARY_DIR}
       ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.${_SRC_EXT}
       COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+      ${CHECK_Fortran_SOURCE_COMPILES_ADD_LINK_OPTIONS}
       ${CHECK_Fortran_SOURCE_COMPILES_ADD_LIBRARIES}
       CMAKE_FLAGS -DCOMPILE_DEFINITIONS:STRING=${MACRO_CHECK_FUNCTION_DEFINITIONS}
       "${CHECK_Fortran_SOURCE_COMPILES_ADD_INCLUDES}"

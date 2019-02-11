@@ -165,7 +165,9 @@ function(_ICU_FIND)
     find_program("${cache_var}" "${program}"
       HINTS ${icu_roots}
       PATH_SUFFIXES ${icu_binary_suffixes}
-      DOC "ICU ${program} executable")
+      DOC "ICU ${program} executable"
+      NO_PACKAGE_ROOT_PATH
+      )
     mark_as_advanced(cache_var)
     set("${program_var}" "${${cache_var}}" PARENT_SCOPE)
   endforeach()
@@ -229,11 +231,15 @@ function(_ICU_FIND)
     find_library("${component_cache_release}" ${component_libnames}
       HINTS ${icu_roots}
       PATH_SUFFIXES ${icu_library_suffixes}
-      DOC "ICU ${component} library (release)")
+      DOC "ICU ${component} library (release)"
+      NO_PACKAGE_ROOT_PATH
+      )
     find_library("${component_cache_debug}" ${component_debug_libnames}
       HINTS ${icu_roots}
       PATH_SUFFIXES ${icu_library_suffixes}
-      DOC "ICU ${component} library (debug)")
+      DOC "ICU ${component} library (debug)"
+      NO_PACKAGE_ROOT_PATH
+      )
     include(${CMAKE_CURRENT_LIST_DIR}/SelectLibraryConfigurations.cmake)
     select_library_configurations(ICU_${component_upcase})
     mark_as_advanced("${component_cache_release}" "${component_cache_debug}")
@@ -362,6 +368,10 @@ if(ICU_FOUND)
           set_target_properties(${_ICU_imported_target} PROPERTIES
             IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
             IMPORTED_LOCATION_DEBUG "${${_ICU_component_cache_debug}}")
+        endif()
+        if(CMAKE_DL_LIBS AND _ICU_component STREQUAL "uc")
+          set_target_properties(${_ICU_imported_target} PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${CMAKE_DL_LIBS}")
         endif()
       endif()
     endif()

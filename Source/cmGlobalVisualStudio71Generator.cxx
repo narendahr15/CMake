@@ -6,7 +6,7 @@
 #include "cmGeneratorTarget.h"
 #include "cmLocalVisualStudio7Generator.h"
 #include "cmMakefile.h"
-#include "cmake.h"
+#include "cmMessageType.h"
 
 cmGlobalVisualStudio71Generator::cmGlobalVisualStudio71Generator(
   cmake* cm, const std::string& platformName)
@@ -149,7 +149,7 @@ void cmGlobalVisualStudio71Generator::WriteProjectDepends(
       m += target->GetName();
       m += " depends on unknown target: ";
       m += name;
-      cmSystemTools::Error(m.c_str());
+      cmSystemTools::Error(m);
     }
     fout << "\t\t{" << guid << "} = {" << guid << "}\n";
   }
@@ -216,10 +216,4 @@ void cmGlobalVisualStudio71Generator::WriteProjectConfigurations(
            << platformName << std::endl;
     }
   }
-}
-
-// output standard header for dsw file
-void cmGlobalVisualStudio71Generator::WriteSLNHeader(std::ostream& fout)
-{
-  fout << "Microsoft Visual Studio Solution File, Format Version 8.00\n";
 }

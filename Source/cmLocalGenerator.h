@@ -14,10 +14,10 @@
 #include <vector>
 
 #include "cmListFileCache.h"
+#include "cmMessageType.h"
 #include "cmOutputConverter.h"
 #include "cmPolicies.h"
 #include "cmStateSnapshot.h"
-#include "cmake.h"
 
 class cmComputeLinkInformation;
 class cmCustomCommandGenerator;
@@ -28,6 +28,7 @@ class cmMakefile;
 class cmRulePlaceholderExpander;
 class cmSourceFile;
 class cmState;
+class cmake;
 
 /** \class cmLocalGenerator
  * \brief Create required build files for a directory.
@@ -126,6 +127,10 @@ public:
   void AppendIPOLinkerFlags(std::string& flags, cmGeneratorTarget* target,
                             const std::string& config,
                             const std::string& lang);
+  void AppendPositionIndependentLinkerFlags(std::string& flags,
+                                            cmGeneratorTarget* target,
+                                            const std::string& config,
+                                            const std::string& lang);
   ///! Get the include flags for the current makefile and language
   std::string GetIncludeFlags(const std::vector<std::string>& includes,
                               cmGeneratorTarget* target,
@@ -228,28 +233,52 @@ public:
   virtual void ClearDependencies(cmMakefile* /* mf */, bool /* verbose */) {}
 
   /** Called from command-line hook to update dependencies.  */
-  virtual bool UpdateDependencies(const char* /* tgtInfo */, bool /*verbose*/,
-                                  bool /*color*/)
+  virtual bool UpdateDependencies(const std::string& /* tgtInfo */,
+                                  bool /*verbose*/, bool /*color*/)
   {
     return true;
   }
 
-  /** @brief Get the include directories for the current makefile and language.
+  /** @brief Get the include directories for the current makefile and language
+   * and optional the compiler implicit include directories.
+   *
    * @arg stripImplicitDirs Strip all directories found in
    *      CMAKE_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES from the result.
    * @arg appendAllImplicitDirs Append all directories found in
    *      CMAKE_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES to the result.
    */
-  void GetIncludeDirectories(std::vector<std::string>& dirs,
-                             cmGeneratorTarget const* target,
-                             const std::string& lang = "C",
-                             const std::string& config = "",
-                             bool stripImplicitDirs = true,
-                             bool appendAllImplicitDirs = false) const;
-  std::vector<BT<std::string>> GetIncludeDirectories(
+  std::vector<BT<std::string>> GetIncludeDirectoriesImplicit(
     cmGeneratorTarget const* target, std::string const& lang = "C",
     std::string const& config = "", bool stripImplicitDirs = true,
     bool appendAllImplicitDirs = false) const;
+
+  /** @brief Get the include directories for the current makefile and language
+   * and optional the compiler implicit include directories.
+   *
+   * @arg dirs Directories are appended to this list
+   */
+  void GetIncludeDirectoriesImplicit(std::vector<std::string>& dirs,
+                                     cmGeneratorTarget const* target,
+                                     const std::string& lang = "C",
+                                     const std::string& config = "",
+                                     bool stripImplicitDirs = true,
+                                     bool appendAllImplicitDirs = false) const;
+
+  /** @brief Get the include directories for the current makefile and language.
+   * @arg dirs Include directories are appended to this list
+   */
+  void GetIncludeDirectories(std::vector<std::string>& dirs,
+                             cmGeneratorTarget const* target,
+                             const std::string& lang = "C",
+                             const std::string& config = "") const;
+
+  /** @brief Get the include directories for the current makefile and language.
+   * @return The include directory list
+   */
+  std::vector<BT<std::string>> GetIncludeDirectories(
+    cmGeneratorTarget const* target, std::string const& lang = "C",
+    std::string const& config = "") const;
+
   void AddCompileOptions(std::string& flags, cmGeneratorTarget* target,
                          const std::string& lang, const std::string& config);
 
@@ -295,6 +324,16 @@ public:
 
   std::string const& GetCurrentBinaryDirectory() const;
   std::string const& GetCurrentSourceDirectory() const;
+
+  /**
+   * Convert the given remote path to a relative path with respect to
+   * the given local path.  Both paths must use forward slashes and not
+   * already be escaped or quoted.
+   * The conversion is skipped if the paths are not both in the source
+   * or both in the binary tree.
+   */
+  std::string MaybeConvertToRelativePath(std::string const& local_path,
+                                         std::string const& remote_path) const;
 
   /**
    * Generate a macOS application bundle Info.plist file.
@@ -355,7 +394,7 @@ public:
   bool IsMinGWMake() const;
   bool IsNMake() const;
 
-  void IssueMessage(cmake::MessageType t, std::string const& text) const;
+  void IssueMessage(MessageType t, std::string const& text) const;
 
   void CreateEvaluationFileOutputs(const std::string& config);
   void ProcessEvaluationFiles(std::vector<std::string>& generatedFiles);

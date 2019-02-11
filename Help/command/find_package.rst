@@ -23,9 +23,9 @@ Finds and loads settings from an external project.  ``<PackageName>_FOUND``
 will be set to indicate whether the package was found.  When the
 package is found package-specific information is provided through
 variables and :ref:`Imported Targets` documented by the package itself.  The
-``QUIET`` option disables messages if the package cannot be found.  The
-``REQUIRED`` option stops processing with an error message if the package
-cannot be found.
+``QUIET`` option disables informational messages, including those indicating
+that the package cannot be found if it is not ``REQUIRED``.  The ``REQUIRED``
+option stops processing with an error message if the package cannot be found.
 
 A package-specific list of required components may be listed after the
 ``COMPONENTS`` option (or after the ``REQUIRED`` option if present).
@@ -353,6 +353,11 @@ enabled.
 
 .. include:: FIND_XXX_ROOT.txt
 .. include:: FIND_XXX_ORDER.txt
+
+By default the value stored in the result variable will be the path at
+which the file is found.  The :variable:`CMAKE_FIND_PACKAGE_RESOLVE_SYMLINKS`
+variable may be set to ``TRUE`` before calling ``find_package`` in order
+to resolve symbolic links and store the real path to the file.
 
 Every non-REQUIRED ``find_package`` call can be disabled by setting the
 :variable:`CMAKE_DISABLE_FIND_PACKAGE_<PackageName>` variable to ``TRUE``.

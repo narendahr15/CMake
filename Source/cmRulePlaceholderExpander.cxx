@@ -10,13 +10,13 @@
 #include "cmSystemTools.h"
 
 cmRulePlaceholderExpander::cmRulePlaceholderExpander(
-  std::map<std::string, std::string> const& compilers,
-  std::map<std::string, std::string> const& variableMappings,
-  std::string const& compilerSysroot, std::string const& linkerSysroot)
-  : Compilers(compilers)
-  , VariableMappings(variableMappings)
-  , CompilerSysroot(compilerSysroot)
-  , LinkerSysroot(linkerSysroot)
+  std::map<std::string, std::string> compilers,
+  std::map<std::string, std::string> variableMappings,
+  std::string compilerSysroot, std::string linkerSysroot)
+  : Compilers(std::move(compilers))
+  , VariableMappings(std::move(variableMappings))
+  , CompilerSysroot(std::move(compilerSysroot))
+  , LinkerSysroot(std::move(linkerSysroot))
 {
 }
 
@@ -160,6 +160,16 @@ std::string cmRulePlaceholderExpander::ExpandRuleVariable(
         }
         return targetBase;
       }
+    }
+  }
+  if (replaceValues.SwiftAuxiliarySources) {
+    if (variable == "SWIFT_AUXILIARY_SOURCES") {
+      return replaceValues.SwiftAuxiliarySources;
+    }
+  }
+  if (replaceValues.SwiftModuleName) {
+    if (variable == "SWIFT_MODULE_NAME") {
+      return replaceValues.SwiftModuleName;
     }
   }
   if (variable == "TARGET_SONAME" || variable == "SONAME_FLAG" ||

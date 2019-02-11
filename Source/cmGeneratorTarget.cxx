@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unordered_set>
+#include <utility>
 
 #include "cmAlgorithms.h"
 #include "cmComputeLinkInformation.h"
@@ -25,6 +26,7 @@
 #include "cmGlobalGenerator.h"
 #include "cmLocalGenerator.h"
 #include "cmMakefile.h"
+#include "cmMessageType.h"
 #include "cmPropertyMap.h"
 #include "cmSourceFile.h"
 #include "cmSourceFileLocation.h"
@@ -201,7 +203,7 @@ std::string cmGeneratorTarget::GetExportName() const
       std::ostringstream e;
       e << "EXPORT_NAME property \"" << exportName << "\" for \""
         << this->GetName() << "\": is not valid.";
-      cmSystemTools::Error(e.str().c_str());
+      cmSystemTools::Error(e.str());
       return "";
     }
     return exportName;
@@ -318,7 +320,7 @@ std::string cmGeneratorTarget::GetOutputName(
       props.push_back(configUpper + "_OUTPUT_NAME");
     }
     // OUTPUT_NAME
-    props.push_back("OUTPUT_NAME");
+    props.emplace_back("OUTPUT_NAME");
 
     std::string outName;
     for (std::string const& p : props) {
@@ -340,7 +342,7 @@ std::string cmGeneratorTarget::GetOutputName(
     // An empty map entry indicates we have been called recursively
     // from the above block.
     this->LocalGenerator->GetCMakeInstance()->IssueMessage(
-      cmake::FATAL_ERROR,
+      MessageType::FATAL_ERROR,
       "Target '" + this->GetName() + "' OUTPUT_NAME depends on itself.",
       this->GetBacktrace());
   }
@@ -354,20 +356,22 @@ void cmGeneratorTarget::ClearSourcesCache()
   this->Objects.clear();
 }
 
-void cmGeneratorTarget::AddSourceCommon(const std::string& src)
+void cmGeneratorTarget::AddSourceCommon(const std::string& src, bool before)
 {
   cmListFileBacktrace lfbt = this->Makefile->GetBacktrace();
   cmGeneratorExpression ge(lfbt);
   std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(src);
   cge->SetEvaluateForBuildsystem(true);
-  this->SourceEntries.push_back(new TargetPropertyEntry(std::move(cge)));
+  this->SourceEntries.insert(before ? this->SourceEntries.begin()
+                                    : this->SourceEntries.end(),
+                             new TargetPropertyEntry(std::move(cge)));
   this->ClearSourcesCache();
 }
 
-void cmGeneratorTarget::AddSource(const std::string& src)
+void cmGeneratorTarget::AddSource(const std::string& src, bool before)
 {
-  this->Target->AddSource(src);
-  this->AddSourceCommon(src);
+  this->Target->AddSource(src, before);
+  this->AddSourceCommon(src, before);
 }
 
 void cmGeneratorTarget::AddTracedSources(std::vector<std::string> const& srcs)
@@ -386,12 +390,10 @@ void cmGeneratorTarget::AddIncludeDirectory(const std::string& src,
   cmGeneratorExpression ge(lfbt);
   std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(src);
   cge->SetEvaluateForBuildsystem(true);
-  // Insert before begin/end
-  std::vector<TargetPropertyEntry*>::iterator pos = before
-    ? this->IncludeDirectoriesEntries.begin()
-    : this->IncludeDirectoriesEntries.end();
   this->IncludeDirectoriesEntries.insert(
-    pos, new TargetPropertyEntry(std::move(cge)));
+    before ? this->IncludeDirectoriesEntries.begin()
+           : this->IncludeDirectoriesEntries.end(),
+    new TargetPropertyEntry(std::move(cge)));
 }
 
 std::vector<cmSourceFile*> const* cmGeneratorTarget::GetSourceDepends(
@@ -435,14 +437,14 @@ static void handleSystemIncludesDep(
 
 /* clang-format off */
 #define IMPLEMENT_VISIT(KIND)                                                 \
-  {                                                                           \
+  do {                                                                        \
     KindedSources const& kinded = this->GetKindedSources(config);             \
     for (SourceAndKind const& s : kinded.Sources) {                           \
       if (s.Kind == KIND) {                                                   \
         data.push_back(s.Source.Value);                                       \
       }                                                                       \
     }                                                                         \
-  }
+  } while (false)
 /* clang-format on */
 
 void cmGeneratorTarget::GetObjectSources(
@@ -495,6 +497,36 @@ const char* cmGeneratorTarget::GetFeature(const std::string& feature,
   return this->LocalGenerator->GetFeature(feature, config);
 }
 
+const char* cmGeneratorTarget::GetLinkPIEProperty(
+  const std::string& config) const
+{
+  static std::string PICValue;
+
+  PICValue = this->GetLinkInterfaceDependentStringAsBoolProperty(
+    "POSITION_INDEPENDENT_CODE", config);
+
+  if (PICValue == "(unset)") {
+    // POSITION_INDEPENDENT_CODE is not set
+    return nullptr;
+  }
+
+  switch (this->GetPolicyStatusCMP0083()) {
+    case cmPolicies::WARN: {
+      std::ostringstream e;
+      e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0083);
+      this->LocalGenerator->IssueMessage(MessageType::AUTHOR_WARNING, e.str());
+      CM_FALLTHROUGH;
+    }
+    case cmPolicies::OLD:
+      return nullptr;
+    default:
+      // nothing to do
+      break;
+  }
+
+  return PICValue.c_str();
+}
+
 bool cmGeneratorTarget::IsIPOEnabled(std::string const& lang,
                                      std::string const& config) const
 {
@@ -529,7 +561,7 @@ bool cmGeneratorTarget::IsIPOEnabled(std::string const& lang,
       w << "INTERPROCEDURAL_OPTIMIZATION property will be ignored for target "
         << "'" << this->GetName() << "'.";
       this->LocalGenerator->GetCMakeInstance()->IssueMessage(
-        cmake::AUTHOR_WARNING, w.str(), this->GetBacktrace());
+        MessageType::AUTHOR_WARNING, w.str(), this->GetBacktrace());
 
       this->PolicyReportedCMP0069 = true;
     }
@@ -560,7 +592,7 @@ bool cmGeneratorTarget::IsIPOEnabled(std::string const& lang,
   this->PolicyReportedCMP0069 = true;
 
   this->LocalGenerator->GetCMakeInstance()->IssueMessage(
-    cmake::FATAL_ERROR, message, this->GetBacktrace());
+    MessageType::FATAL_ERROR, message, this->GetBacktrace());
   return false;
 }
 
@@ -894,7 +926,7 @@ static bool processSources(
       if (fullPath.empty()) {
         if (!e.empty()) {
           cmake* cm = tgt->GetLocalGenerator()->GetCMakeInstance();
-          cm->IssueMessage(cmake::FATAL_ERROR, e, tgt->GetBacktrace());
+          cm->IssueMessage(MessageType::FATAL_ERROR, e, tgt->GetBacktrace());
         }
         return contextDependent;
       }
@@ -909,7 +941,8 @@ static bool processSources(
           err << "Found relative path while evaluating sources of \""
               << tgt->GetName() << "\":\n  \"" << src << "\"\n";
         }
-        tgt->GetLocalGenerator()->IssueMessage(cmake::FATAL_ERROR, err.str());
+        tgt->GetLocalGenerator()->IssueMessage(MessageType::FATAL_ERROR,
+                                               err.str());
         return contextDependent;
       }
       src = fullPath;
@@ -925,7 +958,7 @@ static bool processSources(
     }
     if (!usedSources.empty()) {
       tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
-        cmake::LOG,
+        MessageType::LOG,
         std::string("Used sources for target ") + tgt->GetName() + ":\n" +
           usedSources,
         entry->ge->GetBacktrace());
@@ -956,7 +989,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetSourceFilePaths(
             item.back() == '>') {
           continue;
         }
-        files.push_back(item);
+        files.emplace_back(item);
       }
     }
     return files;
@@ -1099,7 +1132,7 @@ cmGeneratorTarget::KindedSources const& cmGeneratorTarget::GetKindedSources(
         << "\" use a generator expression that depends on the "
            "SOURCES themselves.";
       this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
-        cmake::FATAL_ERROR, e.str(), this->GetBacktrace());
+        MessageType::FATAL_ERROR, e.str(), this->GetBacktrace());
       static KindedSources empty;
       return empty;
     }
@@ -1200,7 +1233,7 @@ void cmGeneratorTarget::ComputeKindedSources(KindedSources& files,
     e << "but may contain only sources that compile, header files, and "
          "other files that would not affect linking of a normal library.";
     this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
-      cmake::FATAL_ERROR, e.str(), this->GetBacktrace());
+      MessageType::FATAL_ERROR, e.str(), this->GetBacktrace());
   }
 }
 
@@ -1358,7 +1391,7 @@ bool cmGeneratorTarget::NeedRelinkBeforeInstall(
     /* clang-format on */
 
     cmake* cm = this->LocalGenerator->GetCMakeInstance();
-    cm->IssueMessage(cmake::FATAL_ERROR, w.str(), this->GetBacktrace());
+    cm->IssueMessage(MessageType::FATAL_ERROR, w.str(), this->GetBacktrace());
   }
 
   return have_rpath;
@@ -1489,7 +1522,7 @@ bool cmGeneratorTarget::HasMacOSXRpathInstallNameDir(
     w << " less than 10.5 or because CMake's platform configuration is";
     w << " corrupt.";
     cmake* cm = this->LocalGenerator->GetCMakeInstance();
-    cm->IssueMessage(cmake::FATAL_ERROR, w.str(), this->GetBacktrace());
+    cm->IssueMessage(MessageType::FATAL_ERROR, w.str(), this->GetBacktrace());
   }
 
   return true;
@@ -1773,10 +1806,10 @@ class cmTargetCollectLinkLanguages
 {
 public:
   cmTargetCollectLinkLanguages(cmGeneratorTarget const* target,
-                               const std::string& config,
+                               std::string config,
                                std::unordered_set<std::string>& languages,
                                cmGeneratorTarget const* head)
-    : Config(config)
+    : Config(std::move(config))
     , Languages(languages)
     , HeadTarget(head)
     , Target(target)
@@ -1789,13 +1822,13 @@ public:
     if (!item.Target) {
       if (item.AsStr().find("::") != std::string::npos) {
         bool noMessage = false;
-        cmake::MessageType messageType = cmake::FATAL_ERROR;
+        MessageType messageType = MessageType::FATAL_ERROR;
         std::ostringstream e;
         switch (this->Target->GetLocalGenerator()->GetPolicyStatus(
           cmPolicies::CMP0028)) {
           case cmPolicies::WARN: {
             e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0028) << "\n";
-            messageType = cmake::AUTHOR_WARNING;
+            messageType = MessageType::AUTHOR_WARNING;
           } break;
           case cmPolicies::OLD:
             noMessage = true;
@@ -1898,7 +1931,7 @@ public:
       }
       e << "Set the LINKER_LANGUAGE property for this target.";
       cmake* cm = this->Target->GetLocalGenerator()->GetCMakeInstance();
-      cm->IssueMessage(cmake::FATAL_ERROR, e.str(),
+      cm->IssueMessage(MessageType::FATAL_ERROR, e.str(),
                        this->Target->GetBacktrace());
     }
     return *this->Preferred.begin();
@@ -2023,7 +2056,7 @@ cmGeneratorTarget::CompileInfo const* cmGeneratorTarget::GetCompileInfo(
     msg += this->GetName();
     msg += " which has type ";
     msg += cmState::GetTargetTypeName(this->GetType());
-    this->LocalGenerator->IssueMessage(cmake::INTERNAL_ERROR, msg);
+    this->LocalGenerator->IssueMessage(MessageType::INTERNAL_ERROR, msg);
     return nullptr;
   }
 
@@ -2209,7 +2242,7 @@ cmTargetTraceDependencies::cmTargetTraceDependencies(cmGeneratorTarget* target)
             << "\"\ndepends on the sources of a target it is used in.  This "
                "is a dependency loop and is not allowed.";
           this->GeneratorTarget->LocalGenerator->IssueMessage(
-            cmake::FATAL_ERROR, e.str());
+            MessageType::FATAL_ERROR, e.str());
           return;
         }
         if (emitted.insert(sf).second &&
@@ -2356,7 +2389,7 @@ void cmTargetTraceDependencies::CheckCustomCommand(cmCustomCommand const& cc)
   std::set<cmGeneratorTarget*> targets;
 
   for (cmCustomCommandLine const& cCmdLine : cc.GetCommandLines()) {
-    std::string const& command = *cCmdLine.begin();
+    std::string const& command = cCmdLine.front();
     // Check for a target with this name.
     if (cmGeneratorTarget* t =
           this->LocalGenerator->FindGeneratorTargetToUse(command)) {
@@ -2521,14 +2554,14 @@ static void processIncludeDirectories(
     for (std::string& entryInclude : entryIncludes) {
       if (fromImported && !cmSystemTools::FileExists(entryInclude)) {
         std::ostringstream e;
-        cmake::MessageType messageType = cmake::FATAL_ERROR;
+        MessageType messageType = MessageType::FATAL_ERROR;
         if (checkCMP0027) {
           switch (tgt->GetPolicyStatusCMP0027()) {
             case cmPolicies::WARN:
               e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0027) << "\n";
               CM_FALLTHROUGH;
             case cmPolicies::OLD:
-              messageType = cmake::AUTHOR_WARNING;
+              messageType = MessageType::AUTHOR_WARNING;
               break;
             case cmPolicies::REQUIRED_ALWAYS:
             case cmPolicies::REQUIRED_IF_USED:
@@ -2554,7 +2587,7 @@ static void processIncludeDirectories(
       if (!cmSystemTools::FileIsFullPath(entryInclude)) {
         std::ostringstream e;
         bool noMessage = false;
-        cmake::MessageType messageType = cmake::FATAL_ERROR;
+        MessageType messageType = MessageType::FATAL_ERROR;
         if (!targetName.empty()) {
           /* clang-format off */
           e << "Target \"" << targetName << "\" contains relative "
@@ -2565,7 +2598,7 @@ static void processIncludeDirectories(
           switch (tgt->GetPolicyStatusCMP0021()) {
             case cmPolicies::WARN: {
               e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0021) << "\n";
-              messageType = cmake::AUTHOR_WARNING;
+              messageType = MessageType::AUTHOR_WARNING;
             } break;
             case cmPolicies::OLD:
               noMessage = true;
@@ -2581,7 +2614,7 @@ static void processIncludeDirectories(
         }
         if (!noMessage) {
           tgt->GetLocalGenerator()->IssueMessage(messageType, e.str());
-          if (messageType == cmake::FATAL_ERROR) {
+          if (messageType == MessageType::FATAL_ERROR) {
             return;
           }
         }
@@ -2601,7 +2634,7 @@ static void processIncludeDirectories(
     }
     if (!usedIncludes.empty()) {
       tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
-        cmake::LOG,
+        MessageType::LOG,
         std::string("Used includes for target ") + tgt->GetName() + ":\n" +
           usedIncludes,
         entry->ge->GetBacktrace());
@@ -2714,7 +2747,7 @@ static void processOptionsInternal(
     }
     if (!usedOptions.empty()) {
       tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
-        cmake::LOG,
+        MessageType::LOG,
         std::string("Used ") + logName + std::string(" for target ") +
           tgt->GetName() + ":\n" + usedOptions,
         entry->ge->GetBacktrace());
@@ -2916,7 +2949,8 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
         case cmPolicies::WARN: {
           std::ostringstream e;
           e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0043);
-          this->LocalGenerator->IssueMessage(cmake::AUTHOR_WARNING, e.str());
+          this->LocalGenerator->IssueMessage(MessageType::AUTHOR_WARNING,
+                                             e.str());
           CM_FALLTHROUGH;
         }
         case cmPolicies::OLD: {
@@ -3055,7 +3089,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetLinkOptions(
                        return item.find(SHELL) != std::string::npos;
                      }) != linkerOptions.end()) {
       this->LocalGenerator->GetCMakeInstance()->IssueMessage(
-        cmake::FATAL_ERROR,
+        MessageType::FATAL_ERROR,
         "'SHELL:' prefix is not supported as part of 'LINKER:' arguments.",
         this->GetBacktrace());
       return result;
@@ -3189,7 +3223,7 @@ void processLinkDirectories(
       if (!cmSystemTools::FileIsFullPath(entryDirectory)) {
         std::ostringstream e;
         bool noMessage = false;
-        cmake::MessageType messageType = cmake::FATAL_ERROR;
+        MessageType messageType = MessageType::FATAL_ERROR;
         if (!targetName.empty()) {
           /* clang-format off */
           e << "Target \"" << targetName << "\" contains relative "
@@ -3200,7 +3234,7 @@ void processLinkDirectories(
           switch (tgt->GetPolicyStatusCMP0081()) {
             case cmPolicies::WARN: {
               e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0081) << "\n";
-              messageType = cmake::AUTHOR_WARNING;
+              messageType = MessageType::AUTHOR_WARNING;
             } break;
             case cmPolicies::OLD:
               noMessage = true;
@@ -3217,7 +3251,7 @@ void processLinkDirectories(
         }
         if (!noMessage) {
           tgt->GetLocalGenerator()->IssueMessage(messageType, e.str());
-          if (messageType == cmake::FATAL_ERROR) {
+          if (messageType == MessageType::FATAL_ERROR) {
             return;
           }
         }
@@ -3227,7 +3261,7 @@ void processLinkDirectories(
       // in case projects set the LINK_DIRECTORIES property directly.
       cmSystemTools::ConvertToUnixSlashes(entryDirectory);
       if (uniqueDirectories.insert(entryDirectory).second) {
-        directories.push_back(entryDirectory);
+        directories.emplace_back(entryDirectory);
         if (debugDirectories) {
           usedDirectories += " * " + entryDirectory + "\n";
         }
@@ -3235,7 +3269,7 @@ void processLinkDirectories(
     }
     if (!usedDirectories.empty()) {
       tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
-        cmake::LOG,
+        MessageType::LOG,
         std::string("Used link directories for target ") + tgt->GetName() +
           ":\n" + usedDirectories,
         entry->ge->GetBacktrace());
@@ -3481,7 +3515,7 @@ std::string cmGeneratorTarget::NormalGetRealName(
   if (this->IsImported()) {
     std::string msg = "NormalGetRealName called on imported target: ";
     msg += this->GetName();
-    this->LocalGenerator->IssueMessage(cmake::INTERNAL_ERROR, msg);
+    this->LocalGenerator->IssueMessage(MessageType::INTERNAL_ERROR, msg);
   }
 
   if (this->GetType() == cmStateEnums::EXECUTABLE) {
@@ -3515,7 +3549,7 @@ void cmGeneratorTarget::GetLibraryNames(std::string& name, std::string& soName,
   if (this->IsImported()) {
     std::string msg = "GetLibraryNames called on imported target: ";
     msg += this->GetName();
-    this->LocalGenerator->IssueMessage(cmake::INTERNAL_ERROR, msg);
+    this->LocalGenerator->IssueMessage(MessageType::INTERNAL_ERROR, msg);
     return;
   }
 
@@ -3592,7 +3626,7 @@ void cmGeneratorTarget::GetExecutableNames(std::string& name,
   if (this->IsImported()) {
     std::string msg = "GetExecutableNames called on imported target: ";
     msg += this->GetName();
-    this->LocalGenerator->IssueMessage(cmake::INTERNAL_ERROR, msg);
+    this->LocalGenerator->IssueMessage(MessageType::INTERNAL_ERROR, msg);
   }
 
 // This versioning is supported only for executables and then only
@@ -3805,7 +3839,7 @@ std::string cmGeneratorTarget::GetPDBName(const std::string& config) const
   }
 
   // PDB_NAME
-  props.push_back("PDB_NAME");
+  props.emplace_back("PDB_NAME");
 
   for (std::string const& p : props) {
     if (const char* outName = this->GetProperty(p)) {
@@ -3825,6 +3859,13 @@ std::string cmGeneratorTarget::GetObjectDirectory(
   // find and replace $(PROJECT_NAME) xcode placeholder
   const std::string projectName = this->LocalGenerator->GetProjectName();
   cmSystemTools::ReplaceString(obj_dir, "$(PROJECT_NAME)", projectName);
+  // Replace Xcode's placeholder for the object file directory since
+  // installation and export scripts need to know the real directory.
+  // Xcode has build-time settings (e.g. for sanitizers) that affect this,
+  // but we use the default here.  Users that want to enable sanitizers
+  // will do so at the cost of object library installation and export.
+  cmSystemTools::ReplaceString(obj_dir, "$(OBJECT_FILE_DIR_normal:base)",
+                               "Objects-normal");
 #endif
   return obj_dir;
 }
@@ -4093,7 +4134,8 @@ void checkPropertyConsistency(cmGeneratorTarget const* depender,
            "This is not allowed.  Only user-defined properties may appear "
            "listed in the "
         << propName << " property.";
-      depender->GetLocalGenerator()->IssueMessage(cmake::FATAL_ERROR, e.str());
+      depender->GetLocalGenerator()->IssueMessage(MessageType::FATAL_ERROR,
+                                                  e.str());
       return;
     }
     if (emitted.insert(p).second) {
@@ -4233,8 +4275,31 @@ void cmGeneratorTarget::CheckPropertyCompatibility(
          "in a boolean interpretation, a numeric minimum, a numeric maximum "
          "or a "
          "string interpretation, but not a mixture.";
-    this->LocalGenerator->IssueMessage(cmake::FATAL_ERROR, e.str());
+    this->LocalGenerator->IssueMessage(MessageType::FATAL_ERROR, e.str());
   }
+}
+
+template <typename PropertyType>
+std::string valueAsString(PropertyType);
+template <>
+std::string valueAsString<bool>(bool value)
+{
+  return value ? "TRUE" : "FALSE";
+}
+template <>
+std::string valueAsString<const char*>(const char* value)
+{
+  return value ? value : "(unset)";
+}
+template <>
+std::string valueAsString<std::string>(std::string value)
+{
+  return value;
+}
+template <>
+std::string valueAsString<std::nullptr_t>(std::nullptr_t /*unused*/)
+{
+  return "(unset)";
 }
 
 std::string compatibilityType(CompatibleType t)
@@ -4268,34 +4333,49 @@ std::string compatibilityAgree(CompatibleType t, bool dominant)
 }
 
 template <typename PropertyType>
-PropertyType getTypedProperty(cmGeneratorTarget const* tgt,
-                              const std::string& prop);
+PropertyType getTypedProperty(
+  cmGeneratorTarget const* tgt, const std::string& prop,
+  cmGeneratorExpressionInterpreter* genexInterpreter = nullptr);
 
 template <>
 bool getTypedProperty<bool>(cmGeneratorTarget const* tgt,
-                            const std::string& prop)
+                            const std::string& prop,
+                            cmGeneratorExpressionInterpreter* genexInterpreter)
 {
-  return tgt->GetPropertyAsBool(prop);
+  if (genexInterpreter == nullptr) {
+    return tgt->GetPropertyAsBool(prop);
+  }
+
+  const char* value = tgt->GetProperty(prop);
+  return cmSystemTools::IsOn(genexInterpreter->Evaluate(value, prop));
 }
 
 template <>
-const char* getTypedProperty<const char*>(cmGeneratorTarget const* tgt,
-                                          const std::string& prop)
+const char* getTypedProperty<const char*>(
+  cmGeneratorTarget const* tgt, const std::string& prop,
+  cmGeneratorExpressionInterpreter* genexInterpreter)
 {
-  return tgt->GetProperty(prop);
+  const char* value = tgt->GetProperty(prop);
+
+  if (genexInterpreter == nullptr) {
+    return value;
+  }
+
+  return genexInterpreter->Evaluate(value, prop).c_str();
 }
 
-template <typename PropertyType>
-std::string valueAsString(PropertyType);
 template <>
-std::string valueAsString<bool>(bool value)
+std::string getTypedProperty<std::string>(
+  cmGeneratorTarget const* tgt, const std::string& prop,
+  cmGeneratorExpressionInterpreter* genexInterpreter)
 {
-  return value ? "TRUE" : "FALSE";
-}
-template <>
-std::string valueAsString<const char*>(const char* value)
-{
-  return value ? value : "(unset)";
+  const char* value = tgt->GetProperty(prop);
+
+  if (genexInterpreter == nullptr) {
+    return valueAsString(value);
+  }
+
+  return genexInterpreter->Evaluate(value, prop);
 }
 
 template <typename PropertyType>
@@ -4309,6 +4389,11 @@ template <>
 const char* impliedValue<const char*>(const char* /*unused*/)
 {
   return "";
+}
+template <>
+std::string impliedValue<std::string>(std::string /*unused*/) // NOLINT(*)
+{
+  return std::string();
 }
 
 template <typename PropertyType>
@@ -4328,6 +4413,13 @@ std::pair<bool, const char*> consistentStringProperty(const char* lhs,
 {
   const bool b = strcmp(lhs, rhs) == 0;
   return std::make_pair(b, b ? lhs : nullptr);
+}
+
+std::pair<bool, std::string> consistentStringProperty(const std::string& lhs,
+                                                      const std::string& rhs)
+{
+  const bool b = lhs == rhs;
+  return std::make_pair(b, b ? lhs : valueAsString(nullptr));
 }
 
 std::pair<bool, const char*> consistentNumberProperty(const char* lhs,
@@ -4372,9 +4464,10 @@ std::pair<bool, const char*> consistentProperty(const char* lhs,
   const char* const null_ptr = nullptr;
 
   switch (t) {
-    case BoolType:
-      assert(false && "consistentProperty for strings called with BoolType");
-      return std::pair<bool, const char*>(false, null_ptr);
+    case BoolType: {
+      bool same = cmSystemTools::IsOn(lhs) == cmSystemTools::IsOn(rhs);
+      return std::make_pair(same, same ? lhs : nullptr);
+    }
     case StringType:
       return consistentStringProperty(lhs, rhs);
     case NumberMinType:
@@ -4383,6 +4476,40 @@ std::pair<bool, const char*> consistentProperty(const char* lhs,
   }
   assert(false && "Unreachable!");
   return std::pair<bool, const char*>(false, null_ptr);
+}
+
+std::pair<bool, std::string> consistentProperty(const std::string& lhs,
+                                                const std::string& rhs,
+                                                CompatibleType t)
+{
+  const std::string null_ptr = valueAsString(nullptr);
+
+  if (lhs == null_ptr && rhs == null_ptr) {
+    return std::make_pair(true, lhs);
+  }
+  if (lhs == null_ptr) {
+    return std::make_pair(true, rhs);
+  }
+  if (rhs == null_ptr) {
+    return std::make_pair(true, lhs);
+  }
+
+  switch (t) {
+    case BoolType: {
+      bool same = cmSystemTools::IsOn(lhs) == cmSystemTools::IsOn(rhs);
+      return std::make_pair(same, same ? lhs : null_ptr);
+    }
+    case StringType:
+      return consistentStringProperty(lhs, rhs);
+    case NumberMinType:
+    case NumberMaxType: {
+      auto value = consistentNumberProperty(lhs.c_str(), rhs.c_str(), t);
+      return std::make_pair(
+        value.first, value.first ? std::string(value.second) : null_ptr);
+    }
+  }
+  assert(false && "Unreachable!");
+  return std::pair<bool, std::string>(false, null_ptr);
 }
 
 template <typename PropertyType>
@@ -4394,6 +4521,7 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
                                                  PropertyType* /*unused*/)
 {
   PropertyType propContent = getTypedProperty<PropertyType>(tgt, p);
+
   std::vector<std::string> headPropKeys = tgt->GetPropertyKeys();
   const bool explicitlySet =
     std::find(headPropKeys.begin(), headPropKeys.end(), p) !=
@@ -4423,6 +4551,11 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
   }
 
   std::string interfaceProperty = "INTERFACE_" + p;
+  std::unique_ptr<cmGeneratorExpressionInterpreter> genexInterpreter(
+    p == "POSITION_INDEPENDENT_CODE" ? new cmGeneratorExpressionInterpreter(
+                                         tgt->GetLocalGenerator(), config, tgt)
+                                     : nullptr);
+
   for (cmGeneratorTarget const* theTarget : deps) {
     // An error should be reported if one dependency
     // has INTERFACE_POSITION_INDEPENDENT_CODE ON and the other
@@ -4434,8 +4567,8 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
 
     const bool ifaceIsSet = std::find(propKeys.begin(), propKeys.end(),
                                       interfaceProperty) != propKeys.end();
-    PropertyType ifacePropContent =
-      getTypedProperty<PropertyType>(theTarget, interfaceProperty);
+    PropertyType ifacePropContent = getTypedProperty<PropertyType>(
+      theTarget, interfaceProperty, genexInterpreter.get());
 
     std::string reportEntry;
     if (ifaceIsSet) {
@@ -4461,7 +4594,7 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
             << " property requirement\nof "
                "dependency \""
             << theTarget->GetName() << "\".\n";
-          cmSystemTools::Error(e.str().c_str());
+          cmSystemTools::Error(e.str());
           break;
         }
         propContent = consistent.second;
@@ -4486,7 +4619,7 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
                "already. The INTERFACE_"
             << p << " property on\ndependency \"" << theTarget->GetName()
             << "\" is in conflict.\n";
-          cmSystemTools::Error(e.str().c_str());
+          cmSystemTools::Error(e.str());
           break;
         }
         propContent = consistent.second;
@@ -4506,7 +4639,7 @@ PropertyType checkInterfacePropertyCompatibility(cmGeneratorTarget const* tgt,
           e << "The INTERFACE_" << p << " property of \""
             << theTarget->GetName() << "\" does\nnot agree with the value of "
             << p << " already determined\nfor \"" << tgt->GetName() << "\".\n";
-          cmSystemTools::Error(e.str().c_str());
+          cmSystemTools::Error(e.str());
           break;
         }
         propContent = consistent.second;
@@ -4531,6 +4664,13 @@ bool cmGeneratorTarget::GetLinkInterfaceDependentBoolProperty(
 {
   return checkInterfacePropertyCompatibility<bool>(this, p, config, "FALSE",
                                                    BoolType, nullptr);
+}
+
+std::string cmGeneratorTarget::GetLinkInterfaceDependentStringAsBoolProperty(
+  const std::string& p, const std::string& config) const
+{
+  return checkInterfacePropertyCompatibility<std::string>(
+    this, p, config, "FALSE", BoolType, nullptr);
 }
 
 const char* cmGeneratorTarget::GetLinkInterfaceDependentStringProperty(
@@ -4735,7 +4875,8 @@ void cmGeneratorTarget::ReportPropertyOrigin(
   areport += result;
   areport += "\"):\n" + report;
 
-  this->LocalGenerator->GetCMakeInstance()->IssueMessage(cmake::LOG, areport);
+  this->LocalGenerator->GetCMakeInstance()->IssueMessage(MessageType::LOG,
+                                                         areport);
 }
 
 void cmGeneratorTarget::LookupLinkItems(std::vector<std::string> const& names,
@@ -4964,7 +5105,7 @@ cmGeneratorTarget::OutputInfo const* cmGeneratorTarget::GetOutputInfo(
     msg += this->GetName();
     msg += " which has type ";
     msg += cmState::GetTargetTypeName(this->GetType());
-    this->LocalGenerator->IssueMessage(cmake::INTERNAL_ERROR, msg);
+    this->LocalGenerator->IssueMessage(MessageType::INTERNAL_ERROR, msg);
     return nullptr;
   }
 
@@ -4995,7 +5136,7 @@ cmGeneratorTarget::OutputInfo const* cmGeneratorTarget::GetOutputInfo(
     // An empty map entry indicates we have been called recursively
     // from the above block.
     this->LocalGenerator->GetCMakeInstance()->IssueMessage(
-      cmake::FATAL_ERROR,
+      MessageType::FATAL_ERROR,
       "Target '" + this->GetName() + "' OUTPUT_DIRECTORY depends on itself.",
       this->GetBacktrace());
     return nullptr;
@@ -5215,7 +5356,7 @@ void cmGeneratorTarget::ComputeLinkInterfaceLibraries(
         linkIfaceProp << ":\n"
         "  " << explicitLibraries << "\n";
       /* clang-format on */
-      this->LocalGenerator->IssueMessage(cmake::AUTHOR_WARNING, w.str());
+      this->LocalGenerator->IssueMessage(MessageType::AUTHOR_WARNING, w.str());
       this->PolicyWarnedCMP0022 = true;
     }
   }
@@ -5284,7 +5425,8 @@ void cmGeneratorTarget::ComputeLinkInterfaceLibraries(
           "Link implementation:\n"
           "  " << oldLibraries << "\n";
         /* clang-format on */
-        this->LocalGenerator->IssueMessage(cmake::AUTHOR_WARNING, w.str());
+        this->LocalGenerator->IssueMessage(MessageType::AUTHOR_WARNING,
+                                           w.str());
         this->PolicyWarnedCMP0022 = true;
       }
     }
@@ -5592,7 +5734,7 @@ bool cmGeneratorTarget::GetConfigCommonSourceFiles(
           "Config \"" << *it << "\":\n"
           "  " << thisConfigFiles << "\n";
       /* clang-format on */
-      this->LocalGenerator->IssueMessage(cmake::FATAL_ERROR, e.str());
+      this->LocalGenerator->IssueMessage(MessageType::FATAL_ERROR, e.str());
       return false;
     }
   }
@@ -5650,7 +5792,8 @@ std::string cmGeneratorTarget::CheckCMP0004(std::string const& item) const
         w << cmPolicies::GetPolicyWarning(cmPolicies::CMP0004) << "\n"
           << "Target \"" << this->GetName() << "\" links to item \"" << item
           << "\" which has leading or trailing whitespace.";
-        cm->IssueMessage(cmake::AUTHOR_WARNING, w.str(), this->GetBacktrace());
+        cm->IssueMessage(MessageType::AUTHOR_WARNING, w.str(),
+                         this->GetBacktrace());
       }
       case cmPolicies::OLD:
         break;
@@ -5659,7 +5802,8 @@ std::string cmGeneratorTarget::CheckCMP0004(std::string const& item) const
         e << "Target \"" << this->GetName() << "\" links to item \"" << item
           << "\" which has leading or trailing whitespace.  "
           << "This is now an error according to policy CMP0004.";
-        cm->IssueMessage(cmake::FATAL_ERROR, e.str(), this->GetBacktrace());
+        cm->IssueMessage(MessageType::FATAL_ERROR, e.str(),
+                         this->GetBacktrace());
       } break;
       case cmPolicies::REQUIRED_IF_USED:
       case cmPolicies::REQUIRED_ALWAYS: {
@@ -5667,7 +5811,8 @@ std::string cmGeneratorTarget::CheckCMP0004(std::string const& item) const
         e << cmPolicies::GetRequiredPolicyError(cmPolicies::CMP0004) << "\n"
           << "Target \"" << this->GetName() << "\" links to item \"" << item
           << "\" which has leading or trailing whitespace.";
-        cm->IssueMessage(cmake::FATAL_ERROR, e.str(), this->GetBacktrace());
+        cm->IssueMessage(MessageType::FATAL_ERROR, e.str(),
+                         this->GetBacktrace());
       } break;
     }
   }
@@ -5831,12 +5976,12 @@ void cmGeneratorTarget::ComputeLinkImplementationLibraries(
       if (name == this->GetName() || name.empty()) {
         if (name == this->GetName()) {
           bool noMessage = false;
-          cmake::MessageType messageType = cmake::FATAL_ERROR;
+          MessageType messageType = MessageType::FATAL_ERROR;
           std::ostringstream e;
           switch (this->GetPolicyStatusCMP0038()) {
             case cmPolicies::WARN: {
               e << cmPolicies::GetPolicyWarning(cmPolicies::CMP0038) << "\n";
-              messageType = cmake::AUTHOR_WARNING;
+              messageType = MessageType::AUTHOR_WARNING;
             } break;
             case cmPolicies::OLD:
               noMessage = true;
@@ -5851,7 +5996,7 @@ void cmGeneratorTarget::ComputeLinkImplementationLibraries(
             e << "Target \"" << this->GetName() << "\" links to itself.";
             this->LocalGenerator->GetCMakeInstance()->IssueMessage(
               messageType, e.str(), this->GetBacktrace());
-            if (messageType == cmake::FATAL_ERROR) {
+            if (messageType == MessageType::FATAL_ERROR) {
               return;
             }
           }
@@ -6003,7 +6148,7 @@ bool cmGeneratorTarget::HasImportLibrary(std::string const& config) const
 std::string cmGeneratorTarget::GetSupportDirectory() const
 {
   std::string dir = this->LocalGenerator->GetCurrentBinaryDirectory();
-  dir += cmake::GetCMakeFilesDirectory();
+  dir += "/CMakeFiles";
   dir += "/";
   dir += this->GetName();
 #if defined(__VMS)

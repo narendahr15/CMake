@@ -6,7 +6,6 @@
 #include "cmConfigure.h" // IWYU pragma: keep
 
 #include <iosfwd>
-#include <map>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -124,7 +123,7 @@ public:
   void AddSources(std::vector<std::string> const& srcs);
   void AddTracedSources(std::vector<std::string> const& srcs);
   cmSourceFile* AddSourceCMP0049(const std::string& src);
-  cmSourceFile* AddSource(const std::string& src);
+  cmSourceFile* AddSource(const std::string& src, bool before = false);
 
   //* how we identify a library, by name and type
   typedef std::pair<std::string, cmTargetLinkLibraryType> LibraryID;
@@ -343,12 +342,5 @@ private:
 };
 
 typedef std::unordered_map<std::string, cmTarget> cmTargets;
-
-class cmTargetSet : public std::set<std::string>
-{
-};
-class cmTargetManifest : public std::map<std::string, cmTargetSet>
-{
-};
 
 #endif

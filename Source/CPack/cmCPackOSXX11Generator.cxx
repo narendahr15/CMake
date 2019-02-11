@@ -11,13 +11,9 @@
 #include "cmSystemTools.h"
 #include "cm_sys_stat.h"
 
-cmCPackOSXX11Generator::cmCPackOSXX11Generator()
-{
-}
+cmCPackOSXX11Generator::cmCPackOSXX11Generator() = default;
 
-cmCPackOSXX11Generator::~cmCPackOSXX11Generator()
-{
-}
+cmCPackOSXX11Generator::~cmCPackOSXX11Generator() = default;
 
 int cmCPackOSXX11Generator::PackageFiles()
 {
@@ -159,8 +155,8 @@ int cmCPackOSXX11Generator::PackageFiles()
   bool res = false;
   while (numTries > 0) {
     res = cmSystemTools::RunSingleCommand(
-      dmgCmd.str().c_str(), &output, &output, &retVal, nullptr,
-      this->GeneratorVerbose, cmDuration::zero());
+      dmgCmd.str(), &output, &output, &retVal, nullptr, this->GeneratorVerbose,
+      cmDuration::zero());
     if (res && !retVal) {
       numTries = -1;
       break;
@@ -169,7 +165,7 @@ int cmCPackOSXX11Generator::PackageFiles()
     numTries--;
   }
   if (!res || retVal) {
-    cmGeneratedFileStream ofs(tmpFile.c_str());
+    cmGeneratedFileStream ofs(tmpFile);
     ofs << "# Run command: " << dmgCmd.str() << std::endl
         << "# Output:" << std::endl
         << output << std::endl;

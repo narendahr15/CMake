@@ -8,6 +8,7 @@
 #include <iterator>
 #include <utility>
 
+#include "cmAlgorithms.h"
 #include "cmProperty.h"
 #include "cmPropertyMap.h"
 #include "cmState.h"
@@ -40,9 +41,8 @@ void cmStateDirectory::ComputeRelativePathTopSource()
 
   std::string result = snapshots.front().GetDirectory().GetCurrentSource();
 
-  for (std::vector<cmStateSnapshot>::const_iterator it = snapshots.begin() + 1;
-       it != snapshots.end(); ++it) {
-    std::string currentSource = it->GetDirectory().GetCurrentSource();
+  for (cmStateSnapshot const& snp : cmMakeRange(snapshots).advance(1)) {
+    std::string currentSource = snp.GetDirectory().GetCurrentSource();
     if (cmSystemTools::IsSubDirectory(result, currentSource)) {
       result = currentSource;
     }
@@ -66,9 +66,8 @@ void cmStateDirectory::ComputeRelativePathTopBinary()
 
   std::string result = snapshots.front().GetDirectory().GetCurrentBinary();
 
-  for (std::vector<cmStateSnapshot>::const_iterator it = snapshots.begin() + 1;
-       it != snapshots.end(); ++it) {
-    std::string currentBinary = it->GetDirectory().GetCurrentBinary();
+  for (cmStateSnapshot const& snp : cmMakeRange(snapshots).advance(1)) {
+    std::string currentBinary = snp.GetDirectory().GetCurrentBinary();
     if (cmSystemTools::IsSubDirectory(result, currentBinary)) {
       result = currentBinary;
     }
@@ -136,6 +135,32 @@ void cmStateDirectory::SetRelativePathTopSource(const char* dir)
 void cmStateDirectory::SetRelativePathTopBinary(const char* dir)
 {
   this->DirectoryState->RelativePathTopBinary = dir;
+}
+
+bool cmStateDirectory::ContainsBoth(std::string const& local_path,
+                                    std::string const& remote_path) const
+{
+  auto PathEqOrSubDir = [](std::string const& a, std::string const& b) {
+    return (cmSystemTools::ComparePath(a, b) ||
+            cmSystemTools::IsSubDirectory(a, b));
+  };
+
+  bool bothInBinary = PathEqOrSubDir(local_path, GetRelativePathTopBinary()) &&
+    PathEqOrSubDir(remote_path, GetRelativePathTopBinary());
+
+  bool bothInSource = PathEqOrSubDir(local_path, GetRelativePathTopSource()) &&
+    PathEqOrSubDir(remote_path, GetRelativePathTopSource());
+
+  return bothInBinary || bothInSource;
+}
+
+std::string cmStateDirectory::ConvertToRelPathIfNotContained(
+  std::string const& local_path, std::string const& remote_path) const
+{
+  if (!this->ContainsBoth(local_path, remote_path)) {
+    return remote_path;
+  }
+  return cmSystemTools::ForceToRelativePath(local_path, remote_path);
 }
 
 cmStateDirectory::cmStateDirectory(

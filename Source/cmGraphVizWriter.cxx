@@ -13,6 +13,7 @@
 #include "cmGlobalGenerator.h"
 #include "cmLocalGenerator.h"
 #include "cmMakefile.h"
+#include "cmState.h"
 #include "cmStateSnapshot.h"
 #include "cmSystemTools.h"
 #include "cmTarget.h"
@@ -172,7 +173,7 @@ cmGraphVizWriter::cmGraphVizWriter(const cmGlobalGenerator* globalGenerator)
 void cmGraphVizWriter::ReadSettings(const char* settingsFileName,
                                     const char* fallbackSettingsFileName)
 {
-  cmake cm(cmake::RoleScript);
+  cmake cm(cmake::RoleScript, cmState::Unknown);
   cm.SetHomeDirectory("");
   cm.SetHomeOutputDirectory("");
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
@@ -198,12 +199,12 @@ void cmGraphVizWriter::ReadSettings(const char* settingsFileName,
   std::cout << "Reading GraphViz options file: " << inFileName << std::endl;
 
 #define __set_if_set(var, cmakeDefinition)                                    \
-  {                                                                           \
+  do {                                                                        \
     const char* value = mf.GetDefinition(cmakeDefinition);                    \
     if (value) {                                                              \
       (var) = value;                                                          \
     }                                                                         \
-  }
+  } while (false)
 
   __set_if_set(this->GraphType, "GRAPHVIZ_GRAPH_TYPE");
   __set_if_set(this->GraphName, "GRAPHVIZ_GRAPH_NAME");
@@ -211,12 +212,12 @@ void cmGraphVizWriter::ReadSettings(const char* settingsFileName,
   __set_if_set(this->GraphNodePrefix, "GRAPHVIZ_NODE_PREFIX");
 
 #define __set_bool_if_set(var, cmakeDefinition)                               \
-  {                                                                           \
+  do {                                                                        \
     const char* value = mf.GetDefinition(cmakeDefinition);                    \
     if (value) {                                                              \
       (var) = mf.IsOn(cmakeDefinition);                                       \
     }                                                                         \
-  }
+  } while (false)
 
   __set_bool_if_set(this->GenerateForExecutables, "GRAPHVIZ_EXECUTABLES");
   __set_bool_if_set(this->GenerateForStaticLibs, "GRAPHVIZ_STATIC_LIBS");

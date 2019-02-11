@@ -23,6 +23,7 @@ Properties of Global Scope
    /prop_gbl/AUTORCC_SOURCE_GROUP
    /prop_gbl/CMAKE_C_KNOWN_FEATURES
    /prop_gbl/CMAKE_CXX_KNOWN_FEATURES
+   /prop_gbl/CMAKE_ROLE
    /prop_gbl/DEBUG_CONFIGURATIONS
    /prop_gbl/DISABLED_FEATURES
    /prop_gbl/ENABLED_FEATURES
@@ -129,13 +130,16 @@ Properties on Targets
    /prop_tgt/AUTOGEN_TARGET_DEPENDS
    /prop_tgt/AUTOMOC_COMPILER_PREDEFINES
    /prop_tgt/AUTOMOC_DEPEND_FILTERS
+   /prop_tgt/AUTOMOC_EXECUTABLE
    /prop_tgt/AUTOMOC_MACRO_NAMES
    /prop_tgt/AUTOMOC_MOC_OPTIONS
    /prop_tgt/AUTOMOC
    /prop_tgt/AUTOUIC
+   /prop_tgt/AUTOUIC_EXECUTABLE
    /prop_tgt/AUTOUIC_OPTIONS
    /prop_tgt/AUTOUIC_SEARCH_PATHS
    /prop_tgt/AUTORCC
+   /prop_tgt/AUTORCC_EXECUTABLE
    /prop_tgt/AUTORCC_OPTIONS
    /prop_tgt/BINARY_DIR
    /prop_tgt/BUILD_RPATH
@@ -190,6 +194,8 @@ Properties on Targets
    /prop_tgt/FRAMEWORK
    /prop_tgt/FRAMEWORK_VERSION
    /prop_tgt/GENERATOR_FILE_NAME
+   /prop_tgt/GHS_INTEGRITY_APP
+   /prop_tgt/GHS_NO_SOURCE_GROUP_FILE
    /prop_tgt/GNUtoMS
    /prop_tgt/HAS_CXX
    /prop_tgt/IMPLICIT_DEPENDS_INCLUDE_TRANSFORM
@@ -200,7 +206,6 @@ Properties on Targets
    /prop_tgt/IMPORTED_IMPLIB
    /prop_tgt/IMPORTED_LIBNAME_CONFIG
    /prop_tgt/IMPORTED_LIBNAME
-   /prop_tgt/IMPORTED_LINK_DEPENDENT_LIBRARIES_CONFIG
    /prop_tgt/IMPORTED_LINK_DEPENDENT_LIBRARIES_CONFIG
    /prop_tgt/IMPORTED_LINK_DEPENDENT_LIBRARIES
    /prop_tgt/IMPORTED_LINK_INTERFACE_LANGUAGES_CONFIG

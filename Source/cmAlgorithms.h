@@ -61,8 +61,8 @@ struct cmStrCmp
     : m_test(test)
   {
   }
-  cmStrCmp(const std::string& test)
-    : m_test(test)
+  cmStrCmp(std::string test)
+    : m_test(std::move(test))
   {
   }
 
@@ -172,16 +172,28 @@ struct cmRange
   const_iterator end() const { return End; }
   bool empty() const { return std::distance(Begin, End) == 0; }
   difference_type size() const { return std::distance(Begin, End); }
-  cmRange& advance(KWIML_INT_intptr_t amount)
+
+  cmRange& advance(KWIML_INT_intptr_t amount) &
   {
-    std::advance(Begin, amount);
+    std::advance(this->Begin, amount);
     return *this;
   }
+  cmRange advance(KWIML_INT_intptr_t amount) &&
+  {
+    std::advance(this->Begin, amount);
+    return std::move(*this);
+  }
 
-  cmRange& retreat(KWIML_INT_intptr_t amount)
+  cmRange& retreat(KWIML_INT_intptr_t amount) &
   {
     std::advance(End, -amount);
     return *this;
+  }
+
+  cmRange retreat(KWIML_INT_intptr_t amount) &&
+  {
+    std::advance(End, -amount);
+    return std::move(*this);
   }
 
 private:
@@ -395,6 +407,12 @@ constexpr
 }
 
 #endif
+
+template <typename T>
+int isize(const T& t)
+{
+  return static_cast<int>(cm::size(t));
+}
 
 #if __cplusplus >= 201402L || defined(_MSVC_LANG) && _MSVC_LANG >= 201402L
 

@@ -2,6 +2,7 @@
    file Copyright.txt or https://cmake.org/licensing for details.  */
 #include "cmInstallCommandArguments.h"
 
+#include "cmAlgorithms.h"
 #include "cmSystemTools.h"
 
 #include <utility>
@@ -16,10 +17,8 @@ const char* cmInstallCommandArguments::PermissionsTable[] = {
 const std::string cmInstallCommandArguments::EmptyString;
 
 cmInstallCommandArguments::cmInstallCommandArguments(
-  const std::string& defaultComponent)
-  : Parser()
-  , ArgumentGroup()
-  , Destination(&Parser, "DESTINATION", &ArgumentGroup)
+  std::string defaultComponent)
+  : Destination(&Parser, "DESTINATION", &ArgumentGroup)
   , Component(&Parser, "COMPONENT", &ArgumentGroup)
   , NamelinkComponent(&Parser, "NAMELINK_COMPONENT", &ArgumentGroup)
   , ExcludeFromAll(&Parser, "EXCLUDE_FROM_ALL", &ArgumentGroup)
@@ -31,7 +30,7 @@ cmInstallCommandArguments::cmInstallCommandArguments(
   , NamelinkSkip(&Parser, "NAMELINK_SKIP", &ArgumentGroup)
   , Type(&Parser, "TYPE", &ArgumentGroup)
   , GenericArguments(nullptr)
-  , DefaultComponentName(defaultComponent)
+  , DefaultComponentName(std::move(defaultComponent))
 {
 }
 
@@ -183,7 +182,8 @@ bool cmInstallCommandArguments::CheckPermissions()
 {
   this->PermissionsString.clear();
   for (std::string const& perm : this->Permissions.GetVector()) {
-    if (!this->CheckPermissions(perm, this->PermissionsString)) {
+    if (!cmInstallCommandArguments::CheckPermissions(
+          perm, this->PermissionsString)) {
       return false;
     }
   }
@@ -207,9 +207,7 @@ bool cmInstallCommandArguments::CheckPermissions(
   return false;
 }
 
-cmInstallCommandIncludesArgument::cmInstallCommandIncludesArgument()
-{
-}
+cmInstallCommandIncludesArgument::cmInstallCommandIncludesArgument() = default;
 
 const std::vector<std::string>&
 cmInstallCommandIncludesArgument::GetIncludeDirs() const
@@ -223,10 +221,7 @@ void cmInstallCommandIncludesArgument::Parse(
   if (args->empty()) {
     return;
   }
-  std::vector<std::string>::const_iterator it = args->begin();
-  ++it;
-  for (; it != args->end(); ++it) {
-    std::string dir = *it;
+  for (std::string dir : cmMakeRange(*args).advance(1)) {
     cmSystemTools::ConvertToUnixSlashes(dir);
     this->IncludeDirs.push_back(std::move(dir));
   }

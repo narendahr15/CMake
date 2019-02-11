@@ -8,6 +8,7 @@
 #include "cmGlobalGenerator.h"
 #include "cmLocalGenerator.h"
 #include "cmMakefile.h"
+#include "cmMessageType.h"
 #include "cmOrderDirectories.h"
 #include "cmOutputConverter.h"
 #include "cmPolicies.h"
@@ -30,7 +31,7 @@ Notes about linking on various platforms:
 
 ------------------------------------------------------------------------------
 
-Linux, FreeBSD, macOS, IRIX, Sun, Windows:
+Linux, FreeBSD, macOS, Sun, Windows:
 
 Linking to libraries using the full path works fine.
 
@@ -522,7 +523,7 @@ bool cmComputeLinkInformation::Compute()
       "name."
       ;
     /* clang-format on */
-    this->CMakeInstance->IssueMessage(cmake::AUTHOR_WARNING, w.str(),
+    this->CMakeInstance->IssueMessage(MessageType::AUTHOR_WARNING, w.str(),
                                       this->Target->GetBacktrace());
   }
 
@@ -883,12 +884,12 @@ void cmComputeLinkInformation::AddLinkExtension(const char* e, LinkType type)
 {
   if (e && *e) {
     if (type == LinkStatic) {
-      this->StaticLinkExtensions.push_back(e);
+      this->StaticLinkExtensions.emplace_back(e);
     }
     if (type == LinkShared) {
-      this->SharedLinkExtensions.push_back(e);
+      this->SharedLinkExtensions.emplace_back(e);
     }
-    this->LinkExtensions.push_back(e);
+    this->LinkExtensions.emplace_back(e);
   }
 }
 
@@ -1236,7 +1237,7 @@ void cmComputeLinkInformation::AddFrameworkItem(std::string const& item)
     std::ostringstream e;
     e << "Could not parse framework path \"" << item << "\" "
       << "linked by target " << this->Target->GetName() << ".";
-    cmSystemTools::Error(e.str().c_str());
+    cmSystemTools::Error(e.str());
     return;
   }
 
@@ -1281,7 +1282,7 @@ void cmComputeLinkInformation::DropDirectoryItem(std::string const& item)
     << "\" requests linking to directory \"" << item << "\".  "
     << "Targets may link only to libraries.  "
     << "CMake is dropping the item.";
-  cmSystemTools::Message(e.str().c_str());
+  cmSystemTools::Message(e.str());
 }
 
 void cmComputeLinkInformation::ComputeFrameworkInfo()
@@ -1382,7 +1383,7 @@ void cmComputeLinkInformation::HandleBadFullItem(std::string const& item,
           << "  " << item << "\n"
           << "which is a full-path but not a valid library file name.";
         /* clang-format on */
-        this->CMakeInstance->IssueMessage(cmake::AUTHOR_WARNING, w.str(),
+        this->CMakeInstance->IssueMessage(MessageType::AUTHOR_WARNING, w.str(),
                                           this->Target->GetBacktrace());
       }
     }
@@ -1401,7 +1402,7 @@ void cmComputeLinkInformation::HandleBadFullItem(std::string const& item,
           << "  " << item << "\n"
           << "which is a full-path but not a valid library file name.";
       /* clang-format on */
-      this->CMakeInstance->IssueMessage(cmake::FATAL_ERROR, e.str(),
+      this->CMakeInstance->IssueMessage(MessageType::FATAL_ERROR, e.str(),
                                         this->Target->GetBacktrace());
     } break;
   }
@@ -1424,7 +1425,7 @@ bool cmComputeLinkInformation::FinishLinkerSearchDirectories()
           "CMP0003-WARNING-GIVEN", "1");
         std::ostringstream w;
         this->PrintLinkPolicyDiagnosis(w);
-        this->CMakeInstance->IssueMessage(cmake::AUTHOR_WARNING, w.str(),
+        this->CMakeInstance->IssueMessage(MessageType::AUTHOR_WARNING, w.str(),
                                           this->Target->GetBacktrace());
       }
     case cmPolicies::OLD:
@@ -1439,7 +1440,7 @@ bool cmComputeLinkInformation::FinishLinkerSearchDirectories()
       std::ostringstream e;
       e << cmPolicies::GetRequiredPolicyError(cmPolicies::CMP0003) << "\n";
       this->PrintLinkPolicyDiagnosis(e);
-      this->CMakeInstance->IssueMessage(cmake::FATAL_ERROR, e.str(),
+      this->CMakeInstance->IssueMessage(MessageType::FATAL_ERROR, e.str(),
                                         this->Target->GetBacktrace());
       return false;
     }
