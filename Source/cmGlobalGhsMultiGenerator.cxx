@@ -14,8 +14,8 @@
 #include "cmVersion.h"
 
 const char* cmGlobalGhsMultiGenerator::FILE_EXTENSION = ".gpj";
-const char* cmGlobalGhsMultiGenerator::DEFAULT_BUILD_PROGRAM = "gbuild.exe";
-const char* cmGlobalGhsMultiGenerator::DEFAULT_TOOLSET_ROOT = "C:/ghs";
+const char* cmGlobalGhsMultiGenerator::DEFAULT_BUILD_PROGRAM = "gbuild";
+const char* cmGlobalGhsMultiGenerator::DEFAULT_TOOLSET_ROOT = "/usr/ghs";
 
 cmGlobalGhsMultiGenerator::cmGlobalGhsMultiGenerator(cmake* cm)
   : cmGlobalGenerator(cm)
@@ -230,7 +230,7 @@ void cmGlobalGhsMultiGenerator::OpenBuildFileStream()
   }
   std::string fOSDir(this->trimQuotes(osDir));
   std::replace(fOSDir.begin(), fOSDir.end(), '\\', '/');
-  if (!fOSDir.empty() && ('c' == fOSDir[0] || 'C' == fOSDir[0])) {
+  if (!fOSDir.empty() && ('c' == fOSDir[0] || 'C' == fOSDir[0] || '/' == fOSDir[0])) {
     this->OSDirRelative = false;
   } else {
     this->OSDirRelative = true;

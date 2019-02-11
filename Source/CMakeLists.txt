@@ -698,14 +698,6 @@ if (WIN32)
       cmVisualStudioSlnParser.cxx
       cmVisualStudioWCEPlatformParser.h
       cmVisualStudioWCEPlatformParser.cxx
-      cmGlobalGhsMultiGenerator.cxx
-      cmGlobalGhsMultiGenerator.h
-      cmLocalGhsMultiGenerator.cxx
-      cmLocalGhsMultiGenerator.h
-      cmGhsMultiTargetGenerator.cxx
-      cmGhsMultiTargetGenerator.h
-      cmGhsMultiGpj.cxx
-      cmGhsMultiGpj.h
       cmVSSetupHelper.cxx
       cmVSSetupHelper.h
       )
@@ -725,6 +717,18 @@ if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
 endif()
 
+#GHS support
+set(SRCS ${SRCS}
+    cmGlobalGhsMultiGenerator.cxx
+    cmGlobalGhsMultiGenerator.h
+    cmLocalGhsMultiGenerator.cxx
+    cmLocalGhsMultiGenerator.h
+    cmGhsMultiTargetGenerator.cxx
+    cmGhsMultiTargetGenerator.h
+    cmGhsMultiGpj.cxx
+    cmGhsMultiGpj.h
+  )
+  
 # Ninja support
 set(SRCS ${SRCS}
   cmGlobalNinjaGenerator.cxx

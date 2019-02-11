@@ -90,7 +90,7 @@ macro(_check_pthreads_flag)
       try_compile(THREADS_HAVE_PTHREAD_ARG
         ${CMAKE_BINARY_DIR}
         ${_threads_src}
-        CMAKE_FLAGS -DLINK_LIBRARIES:STRING=-pthread
+        CMAKE_FLAGS -DLINK_LIBRARIES:STRING=-lposix
         OUTPUT_VARIABLE OUTPUT)
       unset(_threads_src)
 
@@ -108,7 +108,7 @@ macro(_check_pthreads_flag)
 
     if(THREADS_HAVE_PTHREAD_ARG)
       set(Threads_FOUND TRUE)
-      set(CMAKE_THREAD_LIBS_INIT "-pthread")
+      set(CMAKE_THREAD_LIBS_INIT "-lposix")
     endif()
   endif()
 endmacro()
@@ -145,7 +145,6 @@ else()
         if (THREADS_PREFER_PTHREAD_FLAG)
            _check_pthreads_flag()
         endif ()
-
         _check_threads_lib(pthreads pthread_create CMAKE_HAVE_PTHREADS_CREATE)
         _check_threads_lib(pthread  pthread_create CMAKE_HAVE_PTHREAD_CREATE)
         if(CMAKE_SYSTEM_NAME MATCHES "SunOS")
@@ -208,11 +207,11 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(Threads DEFAULT_MSG Threads_FOUND)
 if(THREADS_FOUND AND NOT TARGET Threads::Threads)
   add_library(Threads::Threads INTERFACE IMPORTED)
 
-  if(THREADS_HAVE_PTHREAD_ARG)
-    set_property(TARGET Threads::Threads
-                 PROPERTY INTERFACE_COMPILE_OPTIONS "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler -pthread>"
-                                                    "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
-  endif()
+  # if(THREADS_HAVE_PTHREAD_ARG)
+  #   set_property(TARGET Threads::Threads
+  #                PROPERTY INTERFACE_COMPILE_OPTIONS "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler -pthread>"
+  #                                                   "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
+  # endif()
 
   if(CMAKE_THREAD_LIBS_INIT)
     set_property(TARGET Threads::Threads PROPERTY INTERFACE_LINK_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")

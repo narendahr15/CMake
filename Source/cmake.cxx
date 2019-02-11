@@ -47,7 +47,6 @@
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #  if !defined(CMAKE_BOOT_MINGW)
 #    include "cmGlobalBorlandMakefileGenerator.h"
-#    include "cmGlobalGhsMultiGenerator.h"
 #    include "cmGlobalJOMMakefileGenerator.h"
 #    include "cmGlobalNMakeMakefileGenerator.h"
 #    include "cmGlobalVisualStudio10Generator.h"
@@ -68,6 +67,7 @@
 #  include "cmGlobalWatcomWMakeGenerator.h"
 #endif
 #include "cmGlobalUnixMakefileGenerator3.h"
+#include "cmGlobalGhsMultiGenerator.h"
 #if defined(CMAKE_BUILD_WITH_CMAKE)
 #  include "cmGlobalNinjaGenerator.h"
 #endif
@@ -1764,11 +1764,11 @@ void cmake::AddDefaultGenerators()
   this->Generators.push_back(cmGlobalBorlandMakefileGenerator::NewFactory());
   this->Generators.push_back(cmGlobalNMakeMakefileGenerator::NewFactory());
   this->Generators.push_back(cmGlobalJOMMakefileGenerator::NewFactory());
-  this->Generators.push_back(cmGlobalGhsMultiGenerator::NewFactory());
 #  endif
   this->Generators.push_back(cmGlobalMSYSMakefileGenerator::NewFactory());
   this->Generators.push_back(cmGlobalMinGWMakefileGenerator::NewFactory());
 #endif
+  this->Generators.push_back(cmGlobalGhsMultiGenerator::NewFactory());
   this->Generators.push_back(cmGlobalUnixMakefileGenerator3::NewFactory());
 #if defined(CMAKE_BUILD_WITH_CMAKE)
   this->Generators.push_back(cmGlobalNinjaGenerator::NewFactory());
