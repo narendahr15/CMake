@@ -144,16 +144,16 @@ public:
   static bool IsPathToFramework(const char* value);
 
   static bool DoesFileExistWithExtensions(
-    const char* name, const std::vector<std::string>& sourceExts);
+    const std::string& name, const std::vector<std::string>& sourceExts);
 
   /**
    * Check if the given file exists in one of the parent directory of the
    * given file or directory and if it does, return the name of the file.
    * Toplevel specifies the top-most directory to where it will look.
    */
-  static std::string FileExistsInParentDirectories(const char* fname,
-                                                   const char* directory,
-                                                   const char* toplevel);
+  static std::string FileExistsInParentDirectories(
+    const std::string& fname, const std::string& directory,
+    const std::string& toplevel);
 
   static void Glob(const std::string& directory, const std::string& regexp,
                    std::vector<std::string>& files);
@@ -171,10 +171,6 @@ public:
    */
   static bool SimpleGlob(const std::string& glob,
                          std::vector<std::string>& files, int type = 0);
-
-  ///! Copy a file.
-  static bool cmCopyFile(const std::string& source,
-                         const std::string& destination);
 
   /** Rename a file or directory within a single disk volume (atomic
       if possible).  */
@@ -347,9 +343,6 @@ public:
                          cmDuration timeout, std::vector<char>& out,
                          std::vector<char>& err);
 
-  /** Split a string on its newlines into multiple lines.  Returns
-      false only if the last line stored had no newline.  */
-  static bool Split(const char* s, std::vector<std::string>& l);
   static void SetForceUnixPaths(bool v) { s_ForceUnixPaths = v; }
   static bool GetForceUnixPaths() { return s_ForceUnixPaths; }
 
@@ -443,13 +436,15 @@ public:
 
   /** Copy the file create/access/modify times from the file named by
       the first argument to that named by the second.  */
-  static bool CopyFileTime(const char* fromFile, const char* toFile);
+  static bool CopyFileTime(const std::string& fromFile,
+                           const std::string& toFile);
 
   /** Save and restore file times.  */
   static cmSystemToolsFileTime* FileTimeNew();
   static void FileTimeDelete(cmSystemToolsFileTime*);
-  static bool FileTimeGet(const char* fname, cmSystemToolsFileTime* t);
-  static bool FileTimeSet(const char* fname, cmSystemToolsFileTime* t);
+  static bool FileTimeGet(const std::string& fname, cmSystemToolsFileTime* t);
+  static bool FileTimeSet(const std::string& fname,
+                          const cmSystemToolsFileTime* t);
 
   /** Random seed generation.  */
   static unsigned int RandomSeed();

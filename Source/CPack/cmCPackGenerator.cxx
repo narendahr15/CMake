@@ -43,7 +43,8 @@ cmCPackGenerator::~cmCPackGenerator()
   this->MakefileMap = nullptr;
 }
 
-void cmCPackGenerator::DisplayVerboseOutput(const char* msg, float progress)
+void cmCPackGenerator::DisplayVerboseOutput(const std::string& msg,
+                                            float progress)
 {
   (void)progress;
   cmCPackLogger(cmCPackLog::LOG_VERBOSE, "" << msg << std::endl);
@@ -387,8 +388,7 @@ int cmCPackGenerator::InstallProjectViaInstalledDirectories(
         }
         /* If it is not a symlink then do a plain copy */
         else if (!(cmSystemTools::CopyFileIfDifferent(inFile, filePath) &&
-                   cmSystemTools::CopyFileTime(inFile.c_str(),
-                                               filePath.c_str()))) {
+                   cmSystemTools::CopyFileTime(inFile, filePath))) {
           cmCPackLogger(cmCPackLog::LOG_ERROR,
                         "Problem copying file: " << inFile << " -> "
                                                  << filePath << std::endl);
@@ -689,7 +689,7 @@ int cmCPackGenerator::InstallCMakeProject(
   cm.SetHomeOutputDirectory("");
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cm.AddCMakePaths();
-  cm.SetProgressCallback([this](const char* msg, float prog) {
+  cm.SetProgressCallback([this](const std::string& msg, float prog) {
     this->DisplayVerboseOutput(msg, prog);
   });
   cm.SetTrace(this->Trace);
@@ -1245,7 +1245,8 @@ bool cmCPackGenerator::ConfigureString(const std::string& inString,
   return true;
 }
 
-bool cmCPackGenerator::ConfigureFile(const char* inName, const char* outName,
+bool cmCPackGenerator::ConfigureFile(const std::string& inName,
+                                     const std::string& outName,
                                      bool copyOnly /* = false */)
 {
   return this->MakefileMap->ConfigureFile(inName, outName, copyOnly, true,

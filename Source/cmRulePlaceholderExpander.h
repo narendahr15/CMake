@@ -60,6 +60,9 @@ public:
     const char* FilterPrefix;
     const char* SwiftAuxiliarySources;
     const char* SwiftModuleName;
+    const char* SwiftLibraryName;
+    const char* SwiftPartialModule;
+    const char* SwiftPartialDoc;
   };
 
   // Expand rule variables in CMake of the type found in language rules

@@ -521,6 +521,8 @@ public:
     }
     free(this->ArgV);
   }
+  cmSystemToolsArgV(const cmSystemToolsArgV&) = delete;
+  cmSystemToolsArgV& operator=(const cmSystemToolsArgV&) = delete;
   void Store(std::vector<std::string>& args) const
   {
     for (char** arg = this->ArgV; arg && *arg; ++arg) {
@@ -533,7 +535,7 @@ void cmSystemTools::ParseUnixCommandLine(const char* command,
                                          std::vector<std::string>& args)
 {
   // Invoke the underlying parser.
-  cmSystemToolsArgV argv = cmsysSystem_Parse_CommandForUnix(command, 0);
+  cmSystemToolsArgV argv(cmsysSystem_Parse_CommandForUnix(command, 0));
   argv.Store(args);
 }
 
@@ -897,7 +899,7 @@ std::string cmSystemTools::PrintSingleCommand(
 }
 
 bool cmSystemTools::DoesFileExistWithExtensions(
-  const char* name, const std::vector<std::string>& headerExts)
+  const std::string& name, const std::vector<std::string>& headerExts)
 {
   std::string hname;
 
@@ -912,9 +914,9 @@ bool cmSystemTools::DoesFileExistWithExtensions(
   return false;
 }
 
-std::string cmSystemTools::FileExistsInParentDirectories(const char* fname,
-                                                         const char* directory,
-                                                         const char* toplevel)
+std::string cmSystemTools::FileExistsInParentDirectories(
+  const std::string& fname, const std::string& directory,
+  const std::string& toplevel)
 {
   std::string file = fname;
   cmSystemTools::ConvertToUnixSlashes(file);
@@ -926,19 +928,13 @@ std::string cmSystemTools::FileExistsInParentDirectories(const char* fname,
     if (cmSystemTools::FileExists(path)) {
       return path;
     }
-    if (dir.size() < strlen(toplevel)) {
+    if (dir.size() < toplevel.size()) {
       break;
     }
     prevDir = dir;
     dir = cmSystemTools::GetParentDirectory(dir);
   }
   return "";
-}
-
-bool cmSystemTools::cmCopyFile(const std::string& source,
-                               const std::string& destination)
-{
-  return Superclass::CopyFileAlways(source, destination);
 }
 
 #ifdef _WIN32
@@ -1386,14 +1382,6 @@ cmSystemTools::FileFormat cmSystemTools::GetFileFormat(std::string const& ext)
   }
 #endif // __APPLE__
   return cmSystemTools::UNKNOWN_FILE_FORMAT;
-}
-
-bool cmSystemTools::Split(const char* s, std::vector<std::string>& l)
-{
-  std::vector<std::string> temp;
-  bool res = Superclass::Split(s, temp);
-  l.insert(l.end(), temp.begin(), temp.end());
-  return res;
 }
 
 std::string cmSystemTools::ConvertToOutputPath(std::string const& path)
@@ -2081,7 +2069,8 @@ void cmSystemTools::DoNotInheritStdPipes()
 #endif
 }
 
-bool cmSystemTools::CopyFileTime(const char* fromFile, const char* toFile)
+bool cmSystemTools::CopyFileTime(const std::string& fromFile,
+                                 const std::string& toFile)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
   cmSystemToolsWindowsHandle hFrom = CreateFileW(
@@ -2102,14 +2091,14 @@ bool cmSystemTools::CopyFileTime(const char* fromFile, const char* toFile)
   return SetFileTime(hTo, &timeCreation, &timeLastAccess, &timeLastWrite) != 0;
 #else
   struct stat fromStat;
-  if (stat(fromFile, &fromStat) < 0) {
+  if (stat(fromFile.c_str(), &fromStat) < 0) {
     return false;
   }
 
   struct utimbuf buf;
   buf.actime = fromStat.st_atime;
   buf.modtime = fromStat.st_mtime;
-  return utime(toFile, &buf) >= 0;
+  return utime(toFile.c_str(), &buf) >= 0;
 #endif
 }
 
@@ -2123,7 +2112,8 @@ void cmSystemTools::FileTimeDelete(cmSystemToolsFileTime* t)
   delete t;
 }
 
-bool cmSystemTools::FileTimeGet(const char* fname, cmSystemToolsFileTime* t)
+bool cmSystemTools::FileTimeGet(const std::string& fname,
+                                cmSystemToolsFileTime* t)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
   cmSystemToolsWindowsHandle h = CreateFileW(
@@ -2138,7 +2128,7 @@ bool cmSystemTools::FileTimeGet(const char* fname, cmSystemToolsFileTime* t)
   }
 #else
   struct stat st;
-  if (stat(fname, &st) < 0) {
+  if (stat(fname.c_str(), &st) < 0) {
     return false;
   }
   t->timeBuf.actime = st.st_atime;
@@ -2147,7 +2137,8 @@ bool cmSystemTools::FileTimeGet(const char* fname, cmSystemToolsFileTime* t)
   return true;
 }
 
-bool cmSystemTools::FileTimeSet(const char* fname, cmSystemToolsFileTime* t)
+bool cmSystemTools::FileTimeSet(const std::string& fname,
+                                const cmSystemToolsFileTime* t)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
   cmSystemToolsWindowsHandle h = CreateFileW(
@@ -2159,7 +2150,7 @@ bool cmSystemTools::FileTimeSet(const char* fname, cmSystemToolsFileTime* t)
   return SetFileTime(h, &t->timeCreation, &t->timeLastAccess,
                      &t->timeLastWrite) != 0;
 #else
-  return utime(fname, &t->timeBuf) >= 0;
+  return utime(fname.c_str(), &t->timeBuf) >= 0;
 #endif
 }
 

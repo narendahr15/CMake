@@ -99,6 +99,7 @@
 #include "cmsys/RegularExpression.hxx"
 #include <algorithm>
 #include <cstring>
+#include <initializer_list>
 #include <iostream>
 #include <iterator>
 #include <memory> // IWYU pragma: keep
@@ -1105,7 +1106,7 @@ std::string cmake::FindCacheFile(const std::string& binaryDir)
     if (cmSystemTools::FileExists(cmakeFiles)) {
       std::string cachePathFound =
         cmSystemTools::FileExistsInParentDirectories("CMakeCache.txt",
-                                                     cachePath.c_str(), "/");
+                                                     cachePath, "/");
       if (!cachePathFound.empty()) {
         cachePath = cmSystemTools::GetFilenamePath(cachePathFound);
       }
@@ -1705,7 +1706,7 @@ int cmake::Run(const std::vector<std::string>& args, bool noconfigure)
   ret = this->Generate();
   std::string message = "Build files have been written to: ";
   message += this->GetHomeOutputDirectory();
-  this->UpdateProgress(message.c_str(), -1);
+  this->UpdateProgress(message, -1);
   return ret;
 }
 
@@ -1892,11 +1893,10 @@ bool cmake::LoadCache(const std::string& path, bool internal,
                       std::set<std::string>& includes)
 {
   bool result = this->State->LoadCache(path, internal, excludes, includes);
-  static const char* entries[] = { "CMAKE_CACHE_MAJOR_VERSION",
-                                   "CMAKE_CACHE_MINOR_VERSION" };
-  for (const char* const* nameIt = cm::cbegin(entries);
-       nameIt != cm::cend(entries); ++nameIt) {
-    this->UnwatchUnusedCli(*nameIt);
+  static const auto entries = { "CMAKE_CACHE_MAJOR_VERSION",
+                                "CMAKE_CACHE_MINOR_VERSION" };
+  for (auto const& entry : entries) {
+    this->UnwatchUnusedCli(entry);
   }
   return result;
 }
@@ -1904,13 +1904,12 @@ bool cmake::LoadCache(const std::string& path, bool internal,
 bool cmake::SaveCache(const std::string& path)
 {
   bool result = this->State->SaveCache(path, this->GetMessenger());
-  static const char* entries[] = { "CMAKE_CACHE_MAJOR_VERSION",
-                                   "CMAKE_CACHE_MINOR_VERSION",
-                                   "CMAKE_CACHE_PATCH_VERSION",
-                                   "CMAKE_CACHEFILE_DIR" };
-  for (const char* const* nameIt = cm::cbegin(entries);
-       nameIt != cm::cend(entries); ++nameIt) {
-    this->UnwatchUnusedCli(*nameIt);
+  static const auto entries = { "CMAKE_CACHE_MAJOR_VERSION",
+                                "CMAKE_CACHE_MINOR_VERSION",
+                                "CMAKE_CACHE_PATCH_VERSION",
+                                "CMAKE_CACHEFILE_DIR" };
+  for (auto const& entry : entries) {
+    this->UnwatchUnusedCli(entry);
   }
   return result;
 }
@@ -1925,7 +1924,7 @@ void cmake::SetProgressCallback(ProgressCallbackType f)
   this->ProgressCallback = std::move(f);
 }
 
-void cmake::UpdateProgress(const char* msg, float prog)
+void cmake::UpdateProgress(const std::string& msg, float prog)
 {
   if (this->ProgressCallback && !this->State->GetIsInTryCompile()) {
     this->ProgressCallback(msg, prog);
@@ -2354,7 +2353,7 @@ int cmake::GetSystemInformation(std::vector<std::string>& args)
   outFile += "/CMakeLists.txt";
 
   // Copy file
-  if (!cmSystemTools::cmCopyFile(inFile, outFile)) {
+  if (!cmsys::SystemTools::CopyFileAlways(inFile, outFile)) {
     std::cerr << "Error copying file \"" << inFile << "\" to \"" << outFile
               << "\".\n";
     return 1;
@@ -2640,7 +2639,7 @@ int cmake::Build(int jobs, const std::string& dir, const std::string& target,
       }
       std::string message = "Build files have been written to: ";
       message += this->GetHomeOutputDirectory();
-      this->UpdateProgress(message.c_str(), -1);
+      this->UpdateProgress(message, -1);
 
       // Restore the previously set directories to their original value.
       this->SetHomeDirectory(homeOrig);

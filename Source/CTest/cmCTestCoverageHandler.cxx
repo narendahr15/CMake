@@ -52,6 +52,8 @@ public:
     }
     cmsysProcess_Delete(this->Process);
   }
+  cmCTestRunProcess(const cmCTestRunProcess&) = delete;
+  cmCTestRunProcess& operator=(const cmCTestRunProcess&) = delete;
   void SetCommand(const char* command)
   {
     this->CommandLineStrings.clear();
@@ -223,7 +225,7 @@ bool cmCTestCoverageHandler::ShouldIDoCoverage(std::string const& file,
     checkDir = fBinDir;
   }
   std::string ndc = cmSystemTools::FileExistsInParentDirectories(
-    ".NoDartCoverage", fFile.c_str(), checkDir.c_str());
+    ".NoDartCoverage", fFile, checkDir);
   if (!ndc.empty()) {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT,
                        "Found: " << ndc << " so skip coverage of " << file
@@ -254,8 +256,8 @@ bool cmCTestCoverageHandler::ShouldIDoCoverage(std::string const& file,
     return true;
   }
 
-  ndc = cmSystemTools::FileExistsInParentDirectories(
-    ".NoDartCoverage", fFile.c_str(), checkDir.c_str());
+  ndc = cmSystemTools::FileExistsInParentDirectories(".NoDartCoverage", fFile,
+                                                     checkDir);
   if (!ndc.empty()) {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT,
                        "Found: " << ndc << " so skip coverage of: " << file
@@ -786,6 +788,9 @@ struct cmCTestCoverageHandlerLocale
       cmSystemTools::UnsetEnv("LC_ALL");
     }
   }
+  cmCTestCoverageHandlerLocale(const cmCTestCoverageHandlerLocale&) = delete;
+  cmCTestCoverageHandlerLocale& operator=(
+    const cmCTestCoverageHandlerLocale&) = delete;
   std::string lc_all;
 };
 
@@ -1058,8 +1063,7 @@ int cmCTestCoverageHandler::HandleGCovCoverage(
       this->Quiet);
 
     std::vector<std::string> lines;
-
-    cmSystemTools::Split(output.c_str(), lines);
+    cmsys::SystemTools::Split(output, lines);
 
     for (std::string const& line : lines) {
       std::string sourceFile;
@@ -1435,8 +1439,7 @@ int cmCTestCoverageHandler::HandleLCovCoverage(
       this->Quiet);
 
     std::vector<std::string> lines;
-
-    cmSystemTools::Split(output.c_str(), lines);
+    cmsys::SystemTools::Split(output, lines);
 
     for (std::string const& line : lines) {
       std::string sourceFile;

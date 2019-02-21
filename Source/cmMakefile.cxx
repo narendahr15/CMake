@@ -348,6 +348,9 @@ public:
     this->Makefile->Backtrace = this->Makefile->Backtrace.Pop();
   }
 
+  cmMakefileCall(const cmMakefileCall&) = delete;
+  cmMakefileCall& operator=(const cmMakefileCall&) = delete;
+
 private:
   cmMakefile* Makefile;
 };
@@ -438,6 +441,9 @@ public:
                bool noPolicyScope);
   ~IncludeScope();
   void Quiet() { this->ReportError = false; }
+
+  IncludeScope(const IncludeScope&) = delete;
+  IncludeScope& operator=(const IncludeScope&) = delete;
 
 private:
   cmMakefile* Makefile;
@@ -605,6 +611,9 @@ public:
   }
 
   void Quiet() { this->ReportError = false; }
+
+  ListFileScope(const ListFileScope&) = delete;
+  ListFileScope& operator=(const ListFileScope&) = delete;
 
 private:
   cmMakefile* Makefile;
@@ -1496,6 +1505,9 @@ public:
   }
 
   void Quiet() { this->ReportError = false; }
+
+  BuildsystemFileScope(const BuildsystemFileScope&) = delete;
+  BuildsystemFileScope& operator=(const BuildsystemFileScope&) = delete;
 
 private:
   cmMakefile* Makefile;
@@ -3547,7 +3559,7 @@ cmState* cmMakefile::GetState() const
   return this->GetCMakeInstance()->GetState();
 }
 
-void cmMakefile::DisplayStatus(const char* message, float s) const
+void cmMakefile::DisplayStatus(const std::string& message, float s) const
 {
   cmake* cm = this->GetCMakeInstance();
   if (cm->GetWorkingMode() == cmake::FIND_PACKAGE_MODE) {
@@ -3717,22 +3729,23 @@ void cmMakefile::ConfigureString(const std::string& input, std::string& output,
                                 lineNumber, true, true);
 }
 
-int cmMakefile::ConfigureFile(const char* infile, const char* outfile,
-                              bool copyonly, bool atOnly, bool escapeQuotes,
+int cmMakefile::ConfigureFile(const std::string& infile,
+                              const std::string& outfile, bool copyonly,
+                              bool atOnly, bool escapeQuotes,
                               cmNewLineStyle newLine)
 {
   int res = 1;
   if (!this->CanIWriteThisFile(outfile)) {
-    cmSystemTools::Error("Attempt to write file: ", outfile,
+    cmSystemTools::Error("Attempt to write file: " + outfile +
                          " into a source directory.");
     return 0;
   }
   if (!cmSystemTools::FileExists(infile)) {
-    cmSystemTools::Error("File ", infile, " does not exist.");
+    cmSystemTools::Error("File " + infile + " does not exist.");
     return 0;
   }
   std::string soutfile = outfile;
-  std::string sinfile = infile;
+  const std::string& sinfile = infile;
   this->AddCMakeDependFile(sinfile);
   cmSystemTools::ConvertToUnixSlashes(soutfile);
 

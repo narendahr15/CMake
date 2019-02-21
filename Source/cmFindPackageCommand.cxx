@@ -911,7 +911,7 @@ bool cmFindPackageCommand::HandlePackageMode()
       std::ostringstream aw;
       aw << "Could NOT find " << this->Name << " (missing: " << this->Name
          << "_DIR)";
-      this->Makefile->DisplayStatus(aw.str().c_str(), -1);
+      this->Makefile->DisplayStatus(aw.str(), -1);
     }
   }
 
@@ -1372,6 +1372,9 @@ public:
       cmSystemTools::RemoveFile(this->File);
     }
   }
+  cmFindPackageCommandHoldFile(const cmFindPackageCommandHoldFile&) = delete;
+  cmFindPackageCommandHoldFile& operator=(
+    const cmFindPackageCommandHoldFile&) = delete;
   void Release() { this->File = nullptr; }
 };
 

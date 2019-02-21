@@ -34,6 +34,7 @@
 #include "cmsys/RegularExpression.hxx"
 #include <algorithm>
 #include <assert.h>
+#include <initializer_list>
 #include <iterator>
 #include <sstream>
 #include <stdio.h>
@@ -51,25 +52,23 @@
 // replaced in the form <var> with GetSafeDefinition(var).
 // ${LANG} is replaced in the variable first with all enabled
 // languages.
-static const char* ruleReplaceVars[] = {
-  "CMAKE_${LANG}_COMPILER",
-  "CMAKE_SHARED_LIBRARY_CREATE_${LANG}_FLAGS",
-  "CMAKE_SHARED_MODULE_CREATE_${LANG}_FLAGS",
-  "CMAKE_SHARED_MODULE_${LANG}_FLAGS",
-  "CMAKE_SHARED_LIBRARY_${LANG}_FLAGS",
-  "CMAKE_${LANG}_LINK_FLAGS",
-  "CMAKE_SHARED_LIBRARY_SONAME_${LANG}_FLAG",
-  "CMAKE_${LANG}_ARCHIVE",
-  "CMAKE_AR",
-  "CMAKE_CURRENT_SOURCE_DIR",
-  "CMAKE_CURRENT_BINARY_DIR",
-  "CMAKE_RANLIB",
-  "CMAKE_LINKER",
-  "CMAKE_MT",
-  "CMAKE_CUDA_HOST_COMPILER",
-  "CMAKE_CUDA_HOST_LINK_LAUNCHER",
-  "CMAKE_CL_SHOWINCLUDES_PREFIX"
-};
+static auto ruleReplaceVars = { "CMAKE_${LANG}_COMPILER",
+                                "CMAKE_SHARED_LIBRARY_CREATE_${LANG}_FLAGS",
+                                "CMAKE_SHARED_MODULE_CREATE_${LANG}_FLAGS",
+                                "CMAKE_SHARED_MODULE_${LANG}_FLAGS",
+                                "CMAKE_SHARED_LIBRARY_${LANG}_FLAGS",
+                                "CMAKE_${LANG}_LINK_FLAGS",
+                                "CMAKE_SHARED_LIBRARY_SONAME_${LANG}_FLAG",
+                                "CMAKE_${LANG}_ARCHIVE",
+                                "CMAKE_AR",
+                                "CMAKE_CURRENT_SOURCE_DIR",
+                                "CMAKE_CURRENT_BINARY_DIR",
+                                "CMAKE_RANLIB",
+                                "CMAKE_LINKER",
+                                "CMAKE_MT",
+                                "CMAKE_CUDA_HOST_COMPILER",
+                                "CMAKE_CUDA_HOST_LINK_LAUNCHER",
+                                "CMAKE_CL_SHOWINCLUDES_PREFIX" };
 
 cmLocalGenerator::cmLocalGenerator(cmGlobalGenerator* gg, cmMakefile* makefile)
   : cmOutputConverter(makefile->GetStateSnapshot())
@@ -138,15 +137,13 @@ cmLocalGenerator::cmLocalGenerator(cmGlobalGenerator* gg, cmMakefile* makefile)
     this->VariableMappings[compilerOptionSysroot] =
       this->Makefile->GetSafeDefinition(compilerOptionSysroot);
 
-    for (const char* const* replaceIter = cm::cbegin(ruleReplaceVars);
-         replaceIter != cm::cend(ruleReplaceVars); ++replaceIter) {
-      std::string actualReplace = *replaceIter;
-      if (actualReplace.find("${LANG}") != std::string::npos) {
-        cmSystemTools::ReplaceString(actualReplace, "${LANG}", lang);
+    for (std::string replaceVar : ruleReplaceVars) {
+      if (replaceVar.find("${LANG}") != std::string::npos) {
+        cmSystemTools::ReplaceString(replaceVar, "${LANG}", lang);
       }
 
-      this->VariableMappings[actualReplace] =
-        this->Makefile->GetSafeDefinition(actualReplace);
+      this->VariableMappings[replaceVar] =
+        this->Makefile->GetSafeDefinition(replaceVar);
     }
   }
 }
@@ -920,6 +917,20 @@ std::vector<BT<std::string>> cmLocalGenerator::GetIncludeDirectoriesImplicit(
     return result;
   }
 
+  // Standard include directories to be added unconditionally at the end.
+  // These are intended to simulate additional implicit include directories.
+  std::vector<std::string> userStandardDirs;
+  {
+    std::string key = "CMAKE_";
+    key += lang;
+    key += "_STANDARD_INCLUDE_DIRECTORIES";
+    std::string const value = this->Makefile->GetSafeDefinition(key);
+    cmSystemTools::ExpandListArgument(value, userStandardDirs);
+    for (std::string& usd : userStandardDirs) {
+      cmSystemTools::ConvertToUnixSlashes(usd);
+    }
+  }
+
   // Implicit include directories
   std::vector<std::string> implicitDirs;
   std::set<std::string> implicitSet;
@@ -928,36 +939,42 @@ std::vector<BT<std::string>> cmLocalGenerator::GetIncludeDirectoriesImplicit(
     return (implicitSet.find(dir) == implicitSet.end());
   };
   {
-    std::string rootPath;
-    if (const char* sysrootCompile =
-          this->Makefile->GetDefinition("CMAKE_SYSROOT_COMPILE")) {
-      rootPath = sysrootCompile;
-    } else {
-      rootPath = this->Makefile->GetSafeDefinition("CMAKE_SYSROOT");
-    }
-
     // Raw list of implicit include directories
-    std::vector<std::string> impDirVec;
-
-    // Get platform-wide implicit directories.
-    if (const char* implicitIncludes = (this->Makefile->GetDefinition(
-          "CMAKE_PLATFORM_IMPLICIT_INCLUDE_DIRECTORIES"))) {
-      cmSystemTools::ExpandListArgument(implicitIncludes, impDirVec);
-    }
+    // Start with "standard" directories that we unconditionally add below.
+    std::vector<std::string> impDirVec = userStandardDirs;
 
     // Load implicit include directories for this language.
     std::string key = "CMAKE_";
     key += lang;
     key += "_IMPLICIT_INCLUDE_DIRECTORIES";
     if (const char* value = this->Makefile->GetDefinition(key)) {
+      size_t const impDirVecOldSize = impDirVec.size();
       cmSystemTools::ExpandListArgument(value, impDirVec);
+      // FIXME: Use cmRange with 'advance()' when it supports non-const.
+      for (size_t i = impDirVecOldSize; i < impDirVec.size(); ++i) {
+        cmSystemTools::ConvertToUnixSlashes(impDirVec[i]);
+      }
+    }
+
+    // The Platform/UnixPaths module used to hard-code /usr/include for C, CXX,
+    // and CUDA in CMAKE_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES, but those
+    // variables are now computed.  On macOS the /usr/include directory is
+    // inside the platform SDK so the computed value does not contain it
+    // directly.  In this case adding -I/usr/include can hide SDK headers so we
+    // must still exclude it.
+    if ((lang == "C" || lang == "CXX" || lang == "CUDA") &&
+        std::find(impDirVec.begin(), impDirVec.end(), "/usr/include") ==
+          impDirVec.end() &&
+        std::find_if(impDirVec.begin(), impDirVec.end(),
+                     [](std::string const& d) {
+                       return cmHasLiteralSuffix(d, "/usr/include");
+                     }) != impDirVec.end()) {
+      impDirVec.emplace_back("/usr/include");
     }
 
     for (std::string const& i : impDirVec) {
-      std::string imd = rootPath + i;
-      cmSystemTools::ConvertToUnixSlashes(imd);
-      if (implicitSet.insert(imd).second) {
-        implicitDirs.emplace_back(std::move(imd));
+      if (implicitSet.insert(i).second) {
+        implicitDirs.emplace_back(i);
       }
     }
   }
@@ -996,23 +1013,10 @@ std::vector<BT<std::string>> cmLocalGenerator::GetIncludeDirectoriesImplicit(
   MoveSystemIncludesToEnd(result, config, lang, target);
 
   // Append standard include directories for this language.
-  {
-    std::vector<std::string> userStandardDirs;
-    {
-      std::string key = "CMAKE_";
-      key += lang;
-      key += "_STANDARD_INCLUDE_DIRECTORIES";
-      std::string const value = this->Makefile->GetSafeDefinition(key);
-      cmSystemTools::ExpandListArgument(value, userStandardDirs);
-    }
-    userDirs.reserve(userDirs.size() + userStandardDirs.size());
-    for (std::string& usd : userStandardDirs) {
-      cmSystemTools::ConvertToUnixSlashes(usd);
-      if (notImplicit(usd)) {
-        emitDir(usd);
-      }
-      userDirs.emplace_back(std::move(usd));
-    }
+  userDirs.reserve(userDirs.size() + userStandardDirs.size());
+  for (std::string& usd : userStandardDirs) {
+    emitDir(usd);
+    userDirs.emplace_back(std::move(usd));
   }
 
   // Append compiler implicit include directories
@@ -2808,7 +2812,7 @@ static void cmLGInfoProp(cmMakefile* mf, cmGeneratorTarget* target,
 
 void cmLocalGenerator::GenerateAppleInfoPList(cmGeneratorTarget* target,
                                               const std::string& targetName,
-                                              const char* fname)
+                                              const std::string& fname)
 {
   // Find the Info.plist template.
   const char* in = target->GetProperty("MACOSX_BUNDLE_INFO_PLIST");
@@ -2842,11 +2846,12 @@ void cmLocalGenerator::GenerateAppleInfoPList(cmGeneratorTarget* target,
   cmLGInfoProp(mf, target, "MACOSX_BUNDLE_SHORT_VERSION_STRING");
   cmLGInfoProp(mf, target, "MACOSX_BUNDLE_BUNDLE_VERSION");
   cmLGInfoProp(mf, target, "MACOSX_BUNDLE_COPYRIGHT");
-  mf->ConfigureFile(inFile.c_str(), fname, false, false, false);
+  mf->ConfigureFile(inFile, fname, false, false, false);
 }
 
 void cmLocalGenerator::GenerateFrameworkInfoPList(
-  cmGeneratorTarget* target, const std::string& targetName, const char* fname)
+  cmGeneratorTarget* target, const std::string& targetName,
+  const std::string& fname)
 {
   // Find the Info.plist template.
   const char* in = target->GetProperty("MACOSX_FRAMEWORK_INFO_PLIST");
@@ -2876,5 +2881,5 @@ void cmLocalGenerator::GenerateFrameworkInfoPList(
   cmLGInfoProp(mf, target, "MACOSX_FRAMEWORK_IDENTIFIER");
   cmLGInfoProp(mf, target, "MACOSX_FRAMEWORK_SHORT_VERSION_STRING");
   cmLGInfoProp(mf, target, "MACOSX_FRAMEWORK_BUNDLE_VERSION");
-  mf->ConfigureFile(inFile.c_str(), fname, false, false, false);
+  mf->ConfigureFile(inFile, fname, false, false, false);
 }
