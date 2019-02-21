@@ -68,6 +68,9 @@ public:
   // Write the common disclaimer text at the top of each build file.
   void WriteFileHeader(std::ostream& fout);
 
+  /** Generate an <output>.rule file path for a given command output.  */
+  std::string GenerateRuleFile(std::string const& output) const override;
+
   // Target dependency sorting
   class TargetSet : public std::set<cmGeneratorTarget const*>
   {

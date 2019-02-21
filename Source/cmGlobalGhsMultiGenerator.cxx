@@ -489,3 +489,15 @@ cmGlobalGhsMultiGenerator::OrderedTargetDependSet::OrderedTargetDependSet(
 {
   this->insert(targets.begin(), targets.end());
 }
+
+std::string cmGlobalGhsMultiGenerator::GenerateRuleFile(
+  std::string const& output) const
+{
+  std::string ruleFile = output;
+  // ruleFile += ".rule";
+  const char* dir = this->GetCMakeCFGIntDir();
+  if (dir && dir[0] == '$') {
+    cmSystemTools::ReplaceString(ruleFile, dir, "/CMakeFiles");
+  }
+  return ruleFile;
+}

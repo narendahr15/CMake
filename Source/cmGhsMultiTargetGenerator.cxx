@@ -13,6 +13,8 @@
 #include "cmSourceGroup.h"
 #include "cmTarget.h"
 
+#include <iostream>
+
 cmGhsMultiTargetGenerator::cmGhsMultiTargetGenerator(cmGeneratorTarget* target)
   : GeneratorTarget(target)
   , LocalGenerator(
@@ -489,7 +491,7 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
       std::string fname(si->GetFullPath());
       cmSystemTools::ConvertToOutputSlashes(fname);
       *fout << fname << std::endl;
-
+     
       if ("ld" != si->GetExtension() && "int" != si->GetExtension() &&
           "bsp" != si->GetExtension()) {
         this->WriteObjectLangOverride(*fout, si);
@@ -498,6 +500,40 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
       this->WriteSourceProperty(*fout, si, "INCLUDE_DIRECTORIES", "-I");
       this->WriteSourceProperty(*fout, si, "COMPILE_DEFINITIONS", "-D");
       this->WriteSourceProperty(*fout, si, "COMPILE_OPTIONS", "");
+
+      // To copy the pre build commands
+      const cmCustomCommand* customCommand =  si->GetCustomCommand();
+      cmTarget::CustomCommandType commandType = cmTarget::CustomCommandType::PRE_BUILD;
+      if(customCommand != NULL) {
+        std::cout << "File: " << fname << std::endl;
+        cmCustomCommandLines const& commandLines = customCommand->GetCommandLines();
+        for (cmCustomCommandLine const& command : commandLines) {
+          switch (commandType) {
+          case cmTarget::PRE_BUILD:
+            *fout << "    :preexecShell=";
+            break;
+          case cmTarget::POST_BUILD:
+            *fout << "    :postexecShell=";
+            break;
+          default:
+            assert("Only pre and post are supported");
+          }
+
+          bool firstIteration = true;
+          for (std::string const& commandLine : command) {
+            std::string subCommandE =
+              this->LocalGenerator->EscapeForShell(commandLine, true);
+            *fout << (firstIteration ? "'" : " ");
+            // Need to double escape backslashes
+            cmSystemTools::ReplaceString(subCommandE, "\\", "\\\\");
+            *fout << subCommandE;
+            firstIteration = false;
+          }
+          if (!command.empty()) {
+            *fout << "'" << std::endl;
+          }
+        }
+      }
 
       /* to avoid clutter in the gui only print out the objectName if it has
        * been renamed */
