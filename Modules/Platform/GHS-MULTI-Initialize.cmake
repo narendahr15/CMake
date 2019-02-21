@@ -3,10 +3,10 @@
 
 #Setup Green Hills MULTI specific compilation information
 
-set(GHS_OS_ROOT "/usr/ghs" CACHE PATH "GHS platform OS search root directory")
+set(GHS_OS_ROOT "C:/ghs" CACHE PATH "GHS platform OS search root directory")
 mark_as_advanced(GHS_OS_ROOT)
 
-set(GHS_OS_DIR "/usr/ghs/int1144" CACHE PATH "GHS platform OS directory")
+set(GHS_OS_DIR "NOTFOUND" CACHE PATH "GHS platform OS directory")
 mark_as_advanced(GHS_OS_DIR)
 
 set(GHS_OS_DIR_OPTION "-os_dir " CACHE STRING "GHS compiler os option")
