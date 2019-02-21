@@ -971,7 +971,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetSourceFilePaths(
   std::string const& config) const
 {
   std::vector<BT<std::string>> files;
-  // assert(this->GetType() != cmStateEnums::INTERFACE_LIBRARY);
+  assert(this->GetType() != cmStateEnums::INTERFACE_LIBRARY);
 
   if (!this->LocalGenerator->GetGlobalGenerator()->GetConfigureDoneCMP0026()) {
     // At configure-time, this method can be called as part of getting the

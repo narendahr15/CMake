@@ -16,8 +16,13 @@
 #include "cmake.h"
 
 const char* cmGlobalGhsMultiGenerator::FILE_EXTENSION = ".gpj";
+#ifdef __linux__
 const char* cmGlobalGhsMultiGenerator::DEFAULT_BUILD_PROGRAM = "gbuild";
 const char* cmGlobalGhsMultiGenerator::DEFAULT_TOOLSET_ROOT = "/usr/ghs";
+#elif defined(_WIN32) || defined(_WIN64)
+const char* cmGlobalGhsMultiGenerator::DEFAULT_BUILD_PROGRAM = "gbuild.exe";
+const char* cmGlobalGhsMultiGenerator::DEFAULT_TOOLSET_ROOT = "c:/ghs";
+#endif
 
 cmGlobalGhsMultiGenerator::cmGlobalGhsMultiGenerator(cmake* cm)
   : cmGlobalGenerator(cm)
@@ -493,8 +498,9 @@ cmGlobalGhsMultiGenerator::OrderedTargetDependSet::OrderedTargetDependSet(
 std::string cmGlobalGhsMultiGenerator::GenerateRuleFile(
   std::string const& output) const
 {
+  // In Integrity, the rules will not executed if not associated
+  // with the source files, so .rule suffix is removed
   std::string ruleFile = output;
-  // ruleFile += ".rule";
   const char* dir = this->GetCMakeCFGIntDir();
   if (dir && dir[0] == '$') {
     cmSystemTools::ReplaceString(ruleFile, dir, "/CMakeFiles");

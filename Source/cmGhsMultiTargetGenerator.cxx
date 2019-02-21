@@ -13,7 +13,7 @@
 #include "cmSourceGroup.h"
 #include "cmTarget.h"
 
-#include <iostream>
+#include <vector>
 
 cmGhsMultiTargetGenerator::cmGhsMultiTargetGenerator(cmGeneratorTarget* target)
   : GeneratorTarget(target)
@@ -487,38 +487,14 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
       this->WriteSourceProperty(*fout, si, "COMPILE_DEFINITIONS", "-D");
       this->WriteSourceProperty(*fout, si, "COMPILE_OPTIONS", "");
 
-      // To copy the pre build commands
+      // To handle the commands added to the source by add_custom_command
       const cmCustomCommand* customCommand =  si->GetCustomCommand();
-      cmTarget::CustomCommandType commandType = cmTarget::CustomCommandType::PRE_BUILD;
       if(customCommand != NULL) {
-        std::cout << "File: " << fname << std::endl;
-        cmCustomCommandLines const& commandLines = customCommand->GetCommandLines();
-        for (cmCustomCommandLine const& command : commandLines) {
-          switch (commandType) {
-          case cmTarget::PRE_BUILD:
-            *fout << "    :preexecShell=";
-            break;
-          case cmTarget::POST_BUILD:
-            *fout << "    :postexecShell=";
-            break;
-          default:
-            assert("Only pre and post are supported");
-          }
-
-          bool firstIteration = true;
-          for (std::string const& commandLine : command) {
-            std::string subCommandE =
-              this->LocalGenerator->EscapeForShell(commandLine, true);
-            *fout << (firstIteration ? "'" : " ");
-            // Need to double escape backslashes
-            cmSystemTools::ReplaceString(subCommandE, "\\", "\\\\");
-            *fout << subCommandE;
-            firstIteration = false;
-          }
-          if (!command.empty()) {
-            *fout << "'" << std::endl;
-          }
-        }
+        const cmCustomCommand command(*customCommand);
+        const std::vector<cmCustomCommand> commandsSet{command};
+        WriteCustomCommandsHelper(*fout,
+                                  commandsSet,
+                                  cmTarget::CustomCommandType::PRE_BUILD);
       }
 
       /* to avoid clutter in the gui only print out the objectName if it has

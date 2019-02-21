@@ -68,7 +68,6 @@
 #  include "cmGlobalWatcomWMakeGenerator.h"
 #endif
 #include "cmGlobalUnixMakefileGenerator3.h"
-#include "cmGlobalGhsMultiGenerator.h"
 #if defined(CMAKE_BUILD_WITH_CMAKE)
 #  include "cmGlobalNinjaGenerator.h"
 #endif
@@ -82,6 +81,10 @@
 
 #ifdef CMAKE_USE_ECLIPSE
 #  include "cmExtraEclipseCDT4Generator.h"
+#endif
+
+#if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
+#  include "cmGlobalGhsMultiGenerator.h"
 #endif
 
 #if defined(__APPLE__)
@@ -1840,7 +1843,9 @@ void cmake::AddDefaultGenerators()
   this->Generators.push_back(cmGlobalMinGWMakefileGenerator::NewFactory());
 #endif
   this->Generators.push_back(cmGlobalGhsMultiGenerator::NewFactory());
+#if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
   this->Generators.push_back(cmGlobalUnixMakefileGenerator3::NewFactory());
+#endif
 #if defined(CMAKE_BUILD_WITH_CMAKE)
   this->Generators.push_back(cmGlobalNinjaGenerator::NewFactory());
 #endif
